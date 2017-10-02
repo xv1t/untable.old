@@ -1,3 +1,3 @@
 # untable
 
-Please read [Wiki documentstion](https://github.com/xv1t/untable/wiki)
+Please read [Wiki documentation](https://github.com/xv1t/untable/wiki)
