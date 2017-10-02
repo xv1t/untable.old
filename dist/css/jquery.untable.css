@@ -1,0 +1,190 @@
+
+
+.untable.unselect-lookup{
+    border: 1px black solid;
+}
+
+.tab-pane > .untable{
+    border-top: none;
+}
+
+.untable table {
+   border-collapse: collapse;
+}
+
+.untable tbody tr.fakerow,
+.untable tbody tr.fakerow td
+{
+    height: 0px
+}
+
+.untable-tbody-wrapper{
+   overflow: scroll;
+}
+
+
+.untable-thead-wrapper,
+.untable-tfoot-wrapper
+{
+    overflow: scroll;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    
+}
+
+.untable-thead-wrapper::-webkit-scrollbar,
+.untable-tfoot-wrapper::-webkit-scrollbar{
+    visibility: hidden;
+}
+
+.untable table ,
+.untable table td,
+.untable table th{
+    border: 1px #dadada solid ; 
+    font-size: 14px;
+    padding: 0;
+}
+
+::-webkit-scrollbar-corner{
+    background: transparent;
+}
+
+.untable .untable-heading,
+.untable .untable-thead-wrapper,
+.untable .untable-tbody-wrapper,
+.untable .untable-tfoot-wrapper,
+.untable tfoot td,
+.untable thead th{
+    background: #f3f3f3;
+}
+
+.untable .untable-thead-wrapper tr.columns th .fa.menu:hover{
+    color: red;
+}
+.untable .untable-thead-wrapper tr.columns th .fa.menu{
+    font-weight: normal;
+    cursor: pointer;
+    margin-top: 0px;
+}
+.untable .untable-thead-wrapper tr.columns th{
+    font-weight: bold;
+}
+
+.untable table td,
+.untable table th{
+        padding-left: 3px;
+    padding-right: 3px;    
+    font-weight: normal;
+    white-space: nowrap;
+    text-overflow: clip;
+    overflow: hidden;    
+}
+
+.untable td.row-indicator,
+.untable th.thead-indicator,
+.untable td.tfoot-indicator{
+    width: 20px;
+    min-width: 20px;
+    max-width: 20px;
+}
+
+.untable thead tr.columns th {
+    text-transform:capitalize;
+}
+
+.untable tbody tr.selected td{
+   border-bottom: 1px #ffbd69 solid;
+   border-bottom: 1px #007bff solid;
+}
+
+.focused-border{
+    border: 2px solid #ffbd69;
+    border: 2px solid #007bff;
+    position: absolute;
+}
+
+.untable tbody tr.selected td.row-indicator,
+.untable thead th.focused,
+.untable tfoot td.focused
+{
+    color:white;
+    background: #ed9017; 
+    background: #007bff; 
+}
+
+.untable input:focus{
+    background-color: white !important;
+}
+
+
+.untable tbody tr td select.unselect{
+    width: 100%;
+     -webkit-appearance: none;
+    background-color: white;
+    border: none;
+    color: red;
+}
+.untable tbody tr td select.unselect option{
+    background-color: white;
+}
+
+
+.untable input[type="text"],
+.untable input[type="number"]{
+    border: none;
+    width: 100%;
+    padding: 0;
+    background-color: transparent;
+}
+
+
+
+.untable input[type="number"]{
+    text-align: right;
+}
+
+.untable th.filtered,
+.untable td.changed,
+.untable tr.changed td.row-indicator
+.untable tbody tr.changed:nth-child(even) td.changed,
+.untable tbody tr.changed:nth-child(even) td.row-indicator,
+.untable tbody tr.changed:nth-child(odd) td.changed,
+.untable tbody tr.changed:nth-child(odd) td.row-indicator
+{
+     background-color: #fffae1  !important;
+}
+
+.untable tr.added td.changed,
+.untable tr.added.changed td.row-indicator{
+    background-color: aqua;
+}
+
+/* odd even styles */
+.untable tbody tr:nth-child(odd)
+{
+    background-color: white;
+}
+.untable tbody tr:nth-child(even)
+{
+    background-color: #f4f4f4;
+}
+
+.untable tbody tr.selected:nth-child(even) {
+    background-color: #e2e5ee
+}
+
+.untable tbody tr.selected:nth-child(odd) {
+    background-color: #eaecf5
+}
+
+
+.untable tbody tr.deleted td,
+.untable tbody tr.deleted td input
+{
+    background-color: red;
+    color: white;
+}
+
+.untable .untable-heading{
+    padding: 3px;
+}
