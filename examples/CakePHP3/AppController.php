@@ -1,6 +1,6 @@
 <?php
 
-//Add this code in the AppController.php
+//Add this code in the AppController.php in the class
     
     /**
      * Override this method in you controller
