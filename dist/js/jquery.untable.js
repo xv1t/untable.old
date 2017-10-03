@@ -25,48 +25,48 @@
   //object for nested/treaded object accessing
     
   var TRIGGER = {
-		AFTER: {
-		    CREATE: 'untable.after.create',
-		    READ  : 'untable.after.read',
-		    UPDATE: 'untable.after.update',
-		    DELETE: 'untable.after.delete',
-		    UNDO  : 'untable.after.undo',
-		    CHANGE: 'untable.after.change',
-		    FETCH : 'untable.after.fetch',
-		    SAVE  : 'untable.after.save',
-		    ROW   : 'untable.after.row',
-		},
-		BEFORE: {
-		    CREATE: 'untable.before.create',
-		    READ  : 'untable.before.read',
-		    UPDATE: 'untable.before.update',
-		    DELETE: 'untable.before.delete',     
-		    UNDO  : 'untable.before.undo',
-		    FETCH : 'untable.before.fetch',
-		    SAVE  : 'untable.before.save',
-		    ROW   : 'untable.before.row'
-		    
-		},
-		ERROR: {
-		    CREATE: 'untable.error.create',
-		    READ  : 'untable.error.read',
-		    UPDATE: 'untable.error.update',
-		    DELETE: 'untable.error.delete',
-		    FETCH : 'untable.error.fetch',
-		}, 
-		CANCEL: {
-		    DELETE: 'untable.cancel.delete'
-		},
-		ROW: {
-		    DBLCLICK: 'untable.row.dblclick',
-		    SELECT  : 'untable.row.select'
-		},
-		    MODIFIED    : 'untable.modified',
-		    UNMODIFIED  : 'untable.unmodified',
-		    FOCUS       : 'untable.focus',
-		    BLUR        : 'untable.blur',
-		    CLEAR       : 'untable.clear',
-		    CHOOSE      : 'untable.choose' //<--choose row in the lookup mode
+        AFTER: {
+            CREATE: 'untable.after.create',
+            READ  : 'untable.after.read',
+            UPDATE: 'untable.after.update',
+            DELETE: 'untable.after.delete',
+            UNDO  : 'untable.after.undo',
+            CHANGE: 'untable.after.change',
+            FETCH : 'untable.after.fetch',
+            SAVE  : 'untable.after.save',
+            ROW   : 'untable.after.row',
+        },
+        BEFORE: {
+            CREATE: 'untable.before.create',
+            READ  : 'untable.before.read',
+            UPDATE: 'untable.before.update',
+            DELETE: 'untable.before.delete',     
+            UNDO  : 'untable.before.undo',
+            FETCH : 'untable.before.fetch',
+            SAVE  : 'untable.before.save',
+            ROW   : 'untable.before.row'
+
+        },
+        ERROR: {
+            CREATE: 'untable.error.create',
+            READ  : 'untable.error.read',
+            UPDATE: 'untable.error.update',
+            DELETE: 'untable.error.delete',
+            FETCH : 'untable.error.fetch',
+        }, 
+        CANCEL: {
+            DELETE: 'untable.cancel.delete'
+        },
+        ROW: {
+            DBLCLICK: 'untable.row.dblclick',
+            SELECT  : 'untable.row.select'
+        },
+            MODIFIED    : 'untable.modified',
+            UNMODIFIED  : 'untable.unmodified',
+            FOCUS       : 'untable.focus',
+            BLUR        : 'untable.blur',
+            CLEAR       : 'untable.clear',
+            CHOOSE      : 'untable.choose' //<--choose row in the lookup mode
   };
 
   var untablesCounter = 1; //global counter for each table on the current document
@@ -740,7 +740,7 @@
 
 		} );
 	 },       
-      fakerow: function(){
+         fakerow: function(){
              //set fakerow width
                 $(this).find('div.fakerow')
                         .width( $(this).find('tr.columns').outerWidth() )
@@ -1450,6 +1450,48 @@
 		    return untable_methods.select_row.call($(tr).prev());
 		}
 	 },
+         reload_row: function(tr){
+             if (typeof tr === 'object'){
+                 
+             }
+             
+             if (typeof tr === 'number'){
+                 tr = $(this).untable().find('tbody tr[data-id=' + tr + ']');
+             }
+             
+             if (!tr){
+                 return;
+             }
+             
+             var row_id = $(tr).data('id');
+             
+             $.ajax({
+                 url: $(this).untable('options').rest.url + '/' + row_id,
+                 type: 'get',
+                 data: $(this).untable('options').rest.data,
+                 context: tr,
+                 success: function(res){
+                     //console.log('res', res);
+                     if (res.data){
+                         //reload datum cid
+                         var cid = $(tr).data('cid');
+                         $(tr).untable().data('rows')[ cid ]['datum'] = res.data;
+                         $(tr).untable().data('rows')[ cid ].changed = false;
+                         $(tr).untable().data('rows')[ cid ].deleted = false;
+                         $(tr).untable().data('rows')[ cid ].added = false;
+                         
+                         //reload tr
+                         untable_methods.process_row.call( 
+                                $(tr).untable(), 
+                                tr, 
+                                res.data, 
+                                $(tr).data('cid'));
+                     }
+                 }
+             });
+             
+             //console.log('reloas_row', tr)
+         },
 	 repaint: function(){
 		//reconstruct the whole object
 	 },
