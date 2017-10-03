@@ -33,16 +33,19 @@
 		    UNDO  : 'untable.after.undo',
 		    CHANGE: 'untable.after.change',
 		    FETCH : 'untable.after.fetch',
-		    SAVE  : 'untable.after.save'
+		    SAVE  : 'untable.after.save',
+		    ROW   : 'untable.after.row',
 		},
 		BEFORE: {
 		    CREATE: 'untable.before.create',
 		    READ  : 'untable.before.read',
 		    UPDATE: 'untable.before.update',
 		    DELETE: 'untable.before.delete',     
-		    UNDO :  'untable.before.undo',
-		    FETCH :  'untable.before.fetch',
-		    SAVE  :  'untable.before.save'
+		    UNDO  : 'untable.before.undo',
+		    FETCH : 'untable.before.fetch',
+		    SAVE  : 'untable.before.save',
+		    ROW   : 'untable.before.row'
+		    
 		},
 		ERROR: {
 		    CREATE: 'untable.error.create',
@@ -55,8 +58,8 @@
 		    DELETE: 'untable.cancel.delete'
 		},
 		ROW: {
-		    DBLCLICK: 'untable.cancel.dblclick',
-		    SELECT  : 'untable.cancel.select'
+		    DBLCLICK: 'untable.row.dblclick',
+		    SELECT  : 'untable.row.select'
 		},
 		    MODIFIED    : 'untable.modified',
 		    UNMODIFIED  : 'untable.unmodified',
@@ -365,6 +368,7 @@
 				  field   : undefined, 
 				  filterModel: undefined,
 				  filterField: undefined,
+				  filter  : true,
 				  label   : $(this).data('options').cols[i].field
 			   };
 
@@ -430,6 +434,9 @@
 					 
 					 if ( $(this).untable('options').lookupMode === true ){
 					   $(this).untable('destroy');
+					   $('.unselect-opened')
+						      .removeClass('.unselect-opened')
+							 .focus();
 					   return;
 					 }
 					 
@@ -967,6 +974,10 @@
 					 $(this).untable('prev')
 				  })
 				  .html( fa('backward') ),
+		    );
+
+		$(this).find('.btn-group.untable-navi')
+		    .append(    
 			   $('<button>')
 				  .addClass('btn btn-outline-secondary btn-next')
 				  .on('click', function(){
@@ -1361,9 +1372,22 @@
 			 return;
 		    }
 		    
-		    $(this).untable().trigger( TRIGGER.ROW.DBLCLICK )
+		    var cid = $(this).data('cid');
+		    var status= {
+			 tr: $(this),
+			 trigger: TRIGGER.ROW.DBLCLICK,
+			 id: $(this).data('id'),
+			 data: $(this).untable().data('rows')[cid]
+		    };
+		    
+		    $(this).untable().trigger( TRIGGER.ROW.DBLCLICK, [status] )
 		});
-
+		var status = {
+		  trigger: TRIGGER.AFTER.ROW,
+		  tr: $tr,
+		  data: datum
+		};
+		$(this).trigger( TRIGGER.AFTER.ROW, [status] )
 		return $tr;
 	 },    
 	 pagination: function(pagination_status){
@@ -1434,8 +1458,9 @@
 		    .empty()
 		    .append(
 		    $(
-			   '<div class="untable-heading"></div>' +
+			   
 			   '<div class="untable-container">' +
+				  '<div class="untable-heading"></div>' +
 				  '<div class="untable-thead-wrapper">' +
 					 '<table><thead>' +
 						'<tr class="columns"></tr>' +
@@ -1443,7 +1468,7 @@
 				  '</table></div>' +
 				  '<div class="untable-tbody-wrapper">' +
 					 '<table><tbody></table>' +
-                                         '<div class="fakerow"></div>' +
+                      '<div class="fakerow"></div>' +
 				  '</div>' +
 				  '<div class="untable-tfoot-wrapper">' +
 					 '<table><tfoot><tr class="tfoot"></table>' +
@@ -1810,17 +1835,18 @@
 	 
 	 return val;
     },
-    keyup: function(e){
+    keyup: function(e){ //TEXT PARENT FIELD - NOT TABLE!!!!!
 	 console.log('unselect::keyup', e.keyCode);
 	 
 	 switch (e.keyCode) {
 	   case UNTABLE_KEYCODE_13_ENTER:
 	   case UNTABLE_KEYCODE_40_DOWN:		
 		unselect_methods.open.call(this);
+		e.stopPropagation();
 		break;
 		
 	   case UNTABLE_KEYCODE_38_UP:
-	   case UNTABLE_KEYCODE_27_ESCAPE:		
+	   case UNTABLE_KEYCODE_27_ESCAPE:
 		unselect_methods.close.call(this);
 		break;
 	
@@ -1857,11 +1883,18 @@
 	 return false;
     },
     close: function(){
+	 console.log('unselect::close');
 	 $('.unselect-lookup')		    
 		    .remove();
 	 
+	 $('.unselect-opened:last')
+		    .focus()
+	 
+	 
+	 
 	 $('.unselect-opened')
-		    .removeClass('unselect-opened');
+		    .removeClass('unselect-opened')
+		    
 	 
 	 $(this).trigger('unselect.close');
     },
@@ -1869,6 +1902,8 @@
 	 
     },
     open: function(e){
+	 //e.stopPropagation();
+	 
 	 console.log('open');
 	 //delete all
 	 $('.unselect-lookup').remove();
