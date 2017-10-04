@@ -146,20 +146,33 @@
 	 autofilter_change: function(e){
 	   
 	   var filters = [];
-	   $(this).untable().find('thead tr.autofilter th[autofilter]').each(function(){
+           var having  = [];
+	   $(this).untable()
+                   .find('thead tr.autofilter th[autofilter]')
+                   .each(function(){
 		var col = $(this).data('col');
 		switch (col.type) {
 		  case 'string':
 		  case 'unselect':
 		    var val = $(this).find('input').val();
 			 if (val){
-			   filters.push({
+                           
+                            if (col.filterHaving){
+                              having.push({
+                                    field: col.filterField,
+                                    search: val
+                               });
+                            } else {
+                              filters.push({
 				field: col.filterField,
 				search: val
-			   })
-			   $(this).addClass('filtered')
+			   });
+                            }
+			   
+                           
+			   $(this).addClass('filtered');
 			} else {
-			   $(this).removeClass('filtered')
+			   $(this).removeClass('filtered');
 			}
 		    break;
 
@@ -167,9 +180,9 @@
 
 		    break;
 		}
-	   })
+	   });
 	   
-	   if (filters.length){
+	   if (filters.length || having.length){
 		$(this).closest('tr').find('th.thead-autofilter-indicator')
 			   .html( fa('filter') )
 	   } else {
@@ -178,6 +191,7 @@
 	   }
 	   
 	   $(this).untable('options').rest.data.filters = filters;
+	   $(this).untable('options').rest.data.having = having;
 	   
 	  // if ( filters.length === 0 ){
 		//no filtering
@@ -368,6 +382,7 @@
 				  field   : undefined, 
 				  filterModel: undefined,
 				  filterField: undefined,
+				  filterHaving: false,
 				  filter  : true,
 				  label   : $(this).data('options').cols[i].field
 			   };
@@ -417,50 +432,52 @@
 			   );
 		
 		    var autofilter_control = undefined;
-		    var auto_filter_present = false;
-		    switch (col.type) {
-			 case 'string':
-			 case 'unselect':
-			   autofilter_control = 
-				$('<input>')
-				.attr('type', 'text')				
-				.addClass('autofilter')
-				.attr('data-col', col.cid)
-				.on('change keyup', function(e){
-				  e.stopPropagation();
-				  				  
-				  switch (e.keyCode){
-				    case UNTABLE_KEYCODE_27_ESCAPE: //esc
-					 
-					 if ( $(this).untable('options').lookupMode === true ){
-					   $(this).untable('destroy');
-					   $('.unselect-opened')
-						      .removeClass('.unselect-opened')
-							 .focus();
-					   return;
-					 }
-					 
-					 if ( $(this).val() == '' ){
-					   return;
-					 }
-					 $(this).val('');
-					 break;
-				    case UNTABLE_KEYCODE_13_ENTER: //enter
-				    case UNTABLE_KEYCODE_40_DOWN: //enter
-					 $(this).untable().focus()
-					 break;
-				  }
-				  
-				  untable_methods.autofilter_change.call(this);
-				} )				
-		  
-				auto_filter_present = true;
-			   break;
+                    var auto_filter_present = false;
+                    if (col.filter === true){		    
+                        switch (col.type) {
+                             case 'string':
+                             case 'unselect':
+                               autofilter_control = 
+                                    $('<input>')
+                                    .attr('type', 'text')				
+                                    .addClass('autofilter')
+                                    .attr('data-col', col.cid)
+                                    .on('change keyup', function(e){
+                                      e.stopPropagation();
 
-			 default:
+                                      switch (e.keyCode){
+                                        case UNTABLE_KEYCODE_27_ESCAPE: //esc
 
-			   break;
-		    }
+                                             if ( $(this).untable('options').lookupMode === true ){
+                                               $(this).untable('destroy');
+                                               $('.unselect-opened')
+                                                          .removeClass('.unselect-opened')
+                                                             .focus();
+                                               return;
+                                             }
+
+                                             if ( $(this).val() == '' ){
+                                               return;
+                                             }
+                                             $(this).val('');
+                                             break;
+                                        case UNTABLE_KEYCODE_13_ENTER: //enter
+                                        case UNTABLE_KEYCODE_40_DOWN: //enter
+                                             $(this).untable().focus()
+                                             break;
+                                      }
+
+                                      untable_methods.autofilter_change.call(this);
+                                    } )				
+
+                                    auto_filter_present = true;
+                               break;
+
+                             default:
+
+                               break;
+                        }
+                    }
 		    
 		    //fill autofilter
 		    $(this)
@@ -1464,7 +1481,7 @@
              }
              
              var row_id = $(tr).data('id');
-             
+             $(this).trigger( TRIGGER.BEFORE.FETCH , []);
              $.ajax({
                  url: $(this).untable('options').rest.url + '/' + row_id,
                  type: 'get',
@@ -1486,6 +1503,8 @@
                                 tr, 
                                 res.data, 
                                 $(tr).data('cid'));
+                                
+                        $(this).trigger( TRIGGER.AFTER.FETCH , [1]);
                      }
                  }
              });
@@ -1944,6 +1963,10 @@
 	 
     },
     open: function(e){
+        
+        if (e){
+            e.stopPropagation();
+        }
 	 //e.stopPropagation();
 	 
 	 console.log('open');
