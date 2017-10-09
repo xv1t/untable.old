@@ -44,7 +44,8 @@
             UNDO  : 'untable.before.undo',
             FETCH : 'untable.before.fetch',
             SAVE  : 'untable.before.save',
-            ROW   : 'untable.before.row'
+            ROW   : 'untable.before.row',
+            INIT  : 'untable.before.init'
 
         },
         ERROR: {
@@ -152,22 +153,74 @@
                    .each(function(){
 		var col = $(this).data('col');
 		switch (col.type) {
+		  case 'boolean':
+		    var val = $(this).find('select').val();
+		    var field = col.filterField || col.field;
+		    if (val){
+			 val = val === 'true';
+		    var boolVal = val;
+			 
+			 if (val){
+			   if (col.filterTrueSql){
+				filters.push({
+				  field: field,
+				  sql: col.filterTrueSql
+				});
+				break;
+			   }
+			   
+			   if (col.filterTrueValue){
+				boolVal = col.filterTrueValue;
+			   }
+			   
+			 } else { //false
+			   if (col.filterFalseSql){
+				filters.push({
+				  field: field,
+				  sql: col.filterFalseSql
+				})
+				break;
+			   }
+			   if (col.filterFalseValue){
+				boolVal = col.filterFalseValue;
+			   }
+			 }
+			 
+			 if (col.filterHaving){
+				having.push({
+				  field: col.filterField,
+				  type: 'boolean',
+				  search: boolVal
+				 });
+			   } else {
+                    filters.push({
+				  field: col.filterField,
+				  type: 'boolean',
+				  search: boolVal
+				});
+                  }
+			 //other
+			 $(this).addClass('filtered');
+		    } else {
+			   $(this).removeClass('filtered');
+			}
+		    break;
 		  case 'string':
 		  case 'unselect':
 		    var val = $(this).find('input').val();
 			 if (val){
                            
-                            if (col.filterHaving){
-                              having.push({
-                                    field: col.filterField,
-                                    search: val
-                               });
-                            } else {
-                              filters.push({
-				field: col.filterField,
-				search: val
-			   });
-                            }
+			   if (col.filterHaving){
+				having.push({
+					 field: col.filterField,
+					 search: val
+				 });
+			   } else {
+                    filters.push({
+				  field: col.filterField,
+				  search: val
+				});
+                  }
 			   
                            
 			   $(this).addClass('filtered');
@@ -432,52 +485,68 @@
 			   );
 		
 		    var autofilter_control = undefined;
-                    var auto_filter_present = false;
-                    if (col.filter === true){		    
-                        switch (col.type) {
-                             case 'string':
-                             case 'unselect':
-                               autofilter_control = 
-                                    $('<input>')
-                                    .attr('type', 'text')				
-                                    .addClass('autofilter')
-                                    .attr('data-col', col.cid)
-                                    .on('change keyup', function(e){
-                                      e.stopPropagation();
+		    var auto_filter_present = false;
+		    if (col.filter === true){		    
+			 switch (col.type) {
+			   case 'string':
+			   case 'unselect':
+				autofilter_control = 
+				 $('<input>')
+				 .attr('type', 'text')				
+				 .addClass('autofilter')
+				 .attr('data-col', col.cid)
+				 .on('change keyup', function(e){
+				   e.stopPropagation();
 
-                                      switch (e.keyCode){
-                                        case UNTABLE_KEYCODE_27_ESCAPE: //esc
+				   switch (e.keyCode){
+					case UNTABLE_KEYCODE_27_ESCAPE: //esc
 
-                                             if ( $(this).untable('options').lookupMode === true ){
-                                               $(this).untable('destroy');
-                                               $('.unselect-opened')
-                                                          .removeClass('.unselect-opened')
-                                                             .focus();
-                                               return;
-                                             }
+						if ( $(this).untable('options').lookupMode === true ){
+						  $(this).untable('destroy');
+						  $('.unselect-opened')
+								   .removeClass('.unselect-opened')
+									 .focus();
+						  return;
+						}
 
-                                             if ( $(this).val() == '' ){
-                                               return;
-                                             }
-                                             $(this).val('');
-                                             break;
-                                        case UNTABLE_KEYCODE_13_ENTER: //enter
-                                        case UNTABLE_KEYCODE_40_DOWN: //enter
-                                             $(this).untable().focus()
-                                             break;
-                                      }
+						if ( $(this).val() == '' ){
+						  return;
+						}
+						$(this).val('');
+						break;
+					case UNTABLE_KEYCODE_13_ENTER: //enter
+					case UNTABLE_KEYCODE_40_DOWN: //enter
+						$(this).untable().focus()
+						break;
+				   }
 
-                                      untable_methods.autofilter_change.call(this);
-                                    } )				
+				   untable_methods.autofilter_change.call(this);
+				 } )				
 
-                                    auto_filter_present = true;
-                               break;
+				 auto_filter_present = true;
+				break;
+			   case 'boolean':
+				autofilter_control = $(
+				 '<select class="filter-boolean">' + 
+					'<option></option>' + 
+					'<option value="true">&#xf046;</option>' + 
+					'<option value="false">&#xf096;</option>' + 
+				 '</select>')
+				 .addClass('autofilter')
+				 .attr('data-col', col.cid)
+				 .on('change keyup', function(e){
+				   e.stopPropagation();
+				  
+				  untable_methods.autofilter_change.call(this);
+				 })
 
-                             default:
+			    break;
 
-                               break;
-                        }
-                    }
+			   default:
+
+				break;
+			 }
+		    }
 		    
 		    //fill autofilter
 		    $(this)
@@ -569,18 +638,35 @@
 	 create: function(){
 	   
 		if ( $(this).data('options').readonly )
-		 return;
+		{
+		  console.warn('This recordset is READONLY');
+		  return;
+		}
+		
+		if ( $(this).data('options').allowCreate !== true )
+		{
+		  console.warn('Creates rows are not allowed');
+		  return;
+		}
+		  
 	   
 		//Create a new row
 		if ($(this).data('options').create_template === false){
 		    return console.warn('Please set `options.create_template`');
 		};
 		var create_template = $.extend( {}, $(this).data('options').create_template );
+		var create_template_changed = $.extend( {}, $(this).data('options').create_template );
+
+		for (let key in create_template_changed){
+		  if ( typeof create_template_changed[key] === 'object' ){
+		    delete create_template_changed[key];
+		  }
+		}
 
 		//insert new row/data
 		var cid = $(this).data('rows').push({
 		    added: true,
-		    changed: create_template,
+		    changed: create_template_changed,
 		    deleted: false,
 		    id: null,
 		    datum: create_template
@@ -618,7 +704,17 @@
 	 delete: function(){
 	   
 	    if ( $(this).data('options').readonly )
+	    {
+		 console.warn('Read only. Delete not passible')
 		 return;
+	    }
+	    
+	    if ( $(this).data('options').allowDelete !== true )
+	    {
+		 console.warn('Delete is not allowed!')
+		 return;
+	    }
+	    
 	    //mark to delete selected row
 	    $(this).find('tbody tr.selected')
 			   .each(function(){
@@ -757,7 +853,7 @@
 
 		} );
 	 },       
-         fakerow: function(){
+      fakerow: function(){
              //set fakerow width
                 $(this).find('div.fakerow')
                         .width( $(this).find('tr.columns').outerWidth() )
@@ -772,6 +868,7 @@
 		}
 
 		$(this).trigger( TRIGGER.BEFORE.FETCH , [page]);
+		untable_methods.cell_focuced_remove();
 
 		$(this).data('options').rest.data.page = page;
 
@@ -847,6 +944,9 @@
 		$(this).data('options',
 		    $.extend(
 			   { //Default options
+			       allowCreate : true,
+			       allowDelete : true,
+			       allowEdit   : true,
 				  autofilter  : false,
 				  autoload    : true,
 				  auto_save   : false,      
@@ -859,6 +959,7 @@
 				  dataPrefix  : undefined, //for deep of data
 				  details     : [],
 				  displayField: 'name',
+				  draggable   : false,
 				  foreignKey  : null,
 				  first       : true,
 				  height      : 600,
@@ -893,7 +994,14 @@
 				  page: 1
 			   }, $(this).data('options').rest.data
 			   );
-
+			  
+		if ( $(this).data('options').on && 
+		 typeof $(this).data('options').on === 'object' ){
+		  for (trigger_name in $(this).data('options').on){
+		    if ( typeof $(this).data('options').on[ trigger_name ] === 'function' )
+			 $(this).on( trigger_name, $(this).data('options').on[ trigger_name ] );
+		  }
+		}			  
 
 		$(this).data('untable', true);
 		$(this).data('rows', []);
@@ -902,8 +1010,10 @@
 		    id: null
 		});
 		$(this).addClass('untable');            
-
-		untable_methods.skeleton.call(this);            
+		$(this).trigger(TRIGGER.BEFORE.INIT)
+		
+		untable_methods.skeleton.call(this);     
+		
 		untable_methods.columns.call(this);
 		untable_methods.heading.call(this);
 		untable_methods.events.call(this);
@@ -912,9 +1022,6 @@
 
 		 //$(this).on('data.untable', me)
 
-		if ( $(this).data('options').autoload === true ){
-		    untable_methods.fetch.call(this);
-		}
 
 		//tabindex 
 		$(this).attr('tabindex', 1);
@@ -928,14 +1035,6 @@
 		
 		//user triggers in `options.on`
 		
-		if ( $(this).data('options').on && typeof $(this).data('options').on === 'object' ){
-		  for (trigger_name in $(this).data('options').on){
-		    if ( typeof $(this).data('options').on[ trigger_name ] === 'function' )
-			 $(this).on( trigger_name, $(this).data('options').on[ trigger_name ] );
-		  }
-		}
-
-
 		//in bootstrap tabpane
 		if ($(this).closest('.tab-pane').length === 1){
 		  var tab_id = $(this).closest('.tab-pane').attr('aria-labelledby');
@@ -946,7 +1045,6 @@
 			   })
 			 .on('shown.bs.tab', function(){
 			   var tab_id = $(this).attr('aria-controls');
-			   console.log('shown.bs.tab', tab_id)
 			   $('#' + tab_id).find('.untable')
                                    .each(function(){
 				$(this)
@@ -956,8 +1054,23 @@
 				  .untable('fakerow');
 			   });
 			 });
+			 
+			 //check parents
+			 var parent_tab_id = $( '#' + tab_id ).closest('.tab-pane').attr('aria-labelledby');
+			 if ( parent_tab_id ){
+			   $('#' + parent_tab_id)
+			   .on('hidden.bs.tab', function(){
+				untable_methods.cell_focuced_remove();
+			   })
+			 }
 		  }
 		}
+		
+		//fetch
+		if ( $(this).data('options').autoload === true ){
+		    untable_methods.fetch.call(this);
+		}		
+		
 		return this;
 	 },
 	 heading: function(){
@@ -1021,6 +1134,7 @@
 				  })
 				  .html( fa('refresh') ),
 
+		        $(this).data('options').readonly || !$(this).data('options').allowEdit ? undefined :
 			   $('<button>')
 				  .addClass('btn btn-outline-secondary btn-save disabled')
 				  .attr('title', 'Save')
@@ -1032,6 +1146,7 @@
 				  })
 				  .html( fa('save') ),
 
+		        $(this).data('options').readonly || !$(this).data('options').allowEdit ? undefined :
 			   $('<button>')
 				  .addClass('btn btn-outline-secondary btn-undo disabled')
 				  .attr('title', 'Undo')
@@ -1043,6 +1158,7 @@
 				  })
 				  .html( fa('undo') ),
 
+			   $(this).data('options').readonly || !$(this).data('options').allowEdit || !$(this).data('options').allowCreate ? undefined :
 			   $('<button>')
 				  .addClass('btn btn-outline-secondary btn-create')
 				  .attr('title', 'Create record...')
@@ -1054,6 +1170,7 @@
 				  })
 				  .html( fa('plus') ),
 
+			   $(this).data('options').readonly  || !$(this).data('options').allowDelete ? undefined :
 			   $('<button>')
 				  .addClass('btn btn-outline-secondary btn-delete disabled')
 				  .attr('title', 'Delete record...')
@@ -1074,7 +1191,7 @@
 		  for (i=0; i < $(this).data('options').buttons.length; i++){
 		    var user_btn = $(this).data('options').buttons[i];
 		    
-		    var btn_html;
+		    var btn_html = '';
 		    if ( user_btn.icon ){
 			 btn_html = fa(user_btn.icon);
 		    }
@@ -1270,6 +1387,25 @@
 		if ( typeof datum[ primaryKey ] !== 'undefined' ){
 		    $tr.attr('data-id', datum[ primaryKey ]);
 		}
+		
+		//draggable
+		if ($(this).data('options').draggable === true){
+		  $tr
+		   .off('dragstart')
+		   .on('dragstart', function(e){
+			e.originalEvent.dataTransfer.setData('data', datum)
+			e.originalEvent.dataTransfer.setData('json', JSON.stringify({
+			  data: datum,
+			  untable: {
+			    uid: $(this).untable().attr('untable-uid'),
+			    untable: $(this).untable().attr('untable'),
+			    id:  $(this).untable().attr('id')
+			  }
+			}))
+			console.log('dragstart row', this);
+		   })
+		    .attr('draggable', 'true')
+		}
 
 		for (i=0; i < $(this).data('options').cols.length; i++){
 
@@ -1286,7 +1422,11 @@
 			   'text-align': col.align
 		    });
 
-		    if ( col.editable && $(this).data('options').readonly === false )
+		    if ( col.editable && 
+		      	   $(this).data('options').readonly === false &&
+		      	   $(this).data('options').allowEdit === true
+			   
+		 )
 		    {
 			   //editable cells
 			   var $control = 
@@ -1467,7 +1607,7 @@
 		    return untable_methods.select_row.call($(tr).prev());
 		}
 	 },
-         reload_row: function(tr){
+      reload_row: function(tr, savedStatus){
              if (typeof tr === 'object'){
                  
              }
@@ -1479,8 +1619,14 @@
              if (!tr){
                  return;
              }
+		   $(tr).removeClass('saved');
              
              var row_id = $(tr).data('id');
+		   
+		   if (!row_id){
+			return console.error('Row not found with id=' + row_id);
+		   }
+		   
              $(this).trigger( TRIGGER.BEFORE.FETCH , []);
              $.ajax({
                  url: $(this).untable('options').rest.url + '/' + row_id,
@@ -1503,7 +1649,9 @@
                                 tr, 
                                 res.data, 
                                 $(tr).data('cid'));
-                                
+                        if (savedStatus === true){
+					 $(this).addClass('saved')
+				    }
                         $(this).trigger( TRIGGER.AFTER.FETCH , [1]);
                      }
                  }
@@ -1603,7 +1751,11 @@
 	  * @returns {undefined}
 	  */
 	 save: function(){
-
+		if ( $(this).data('options').readonly )
+	    {
+		 console.warn('Read only. Save is canceled')
+		 return;
+	    }
 
 		var update = untable_methods.changed.call(this);
 		var add = untable_methods.added.call(this);
@@ -1613,6 +1765,8 @@
 		    return console.warn('Nothing to save')
 		}
 		$(this).trigger( TRIGGER.BEFORE.SAVE );
+		
+		$(this).find('tbody tr.saved').removeClass('saved')
 
 		ajax_add_config = {
 		  context: this,
@@ -1749,7 +1903,7 @@
 		});
 		return this;
 	 },
-         tfoot: function(tfoot){
+      tfoot: function(tfoot){
              var col_name;
              
              //empty all tfoot cells
@@ -1829,6 +1983,8 @@
 	 
 	 $(this).attr('unselect_uid', untablesCounter++);
 
+	 var init_val = $(this).val();
+
 	 //untable extends
 	 $(this).data('options').untable = 
 	   $.extend({
@@ -1840,6 +1996,7 @@
 	 
 	 $(this)
 	   .attr('type', 'text')		    
+	   .attr('autocomplete', 'off')		    
 	   .attr('placeholder', $(this).data('options').placeholder)		    
 	   .data('value', $(this).data('options').value)		    
 	   .addClass('unselect')
@@ -1873,7 +2030,7 @@
 		$('<input type="hidden">')
 		.attr('unselect_uid', $(this).attr('unselect_uid'))
 		.attr('name', $(this).data('options').name)
-		.val( $(this).data('options').value )
+		.val( $(this).data('options').value || init_val )
 	 );
 	 
 	   //user triggers in `options.on`
@@ -1884,6 +2041,8 @@
 		  $(this).on( trigger_name, $(this).data('options').on[ trigger_name ] );
 	   }
 	 }	 
+	 
+	 $(this).trigger('unselect.before.init');
 	 return this;
     },
     val: function(){

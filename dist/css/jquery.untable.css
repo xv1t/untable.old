@@ -37,6 +37,18 @@
     visibility: hidden;
 }
 
+
+@keyframes fadeIt {
+  0%   { background-color: #FFFFFF; }
+  10%  { background-color: #28a745; }
+  100% { background-color: #FFFFFF; }
+}
+
+.untable tbody tr.saved{
+    background-image:none !important;
+    animation: fadeIt 3s ease-in-out; 
+}
+
 .untable table ,
 .untable table td,
 .untable table th{
@@ -105,6 +117,7 @@
 
 .untable tbody tr.selected td.row-indicator,
 .untable thead th.focused,
+.untable thead th.focused select.filter-boolean,
 .untable tfoot td.focused
 {
     color:white;
@@ -187,4 +200,12 @@
 
 .untable .untable-heading{
     padding: 3px;
+}
+
+select.filter-boolean{
+    font-family: 'FontAwesome';
+    border: none;
+    width: 100%;    
+    padding: 0 0 0 40%;
+    background-color: transparent;
 }
