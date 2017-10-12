@@ -209,3 +209,16 @@ select.filter-boolean{
     padding: 0 0 0 40%;
     background-color: transparent;
 }
+
+th.thead-indicator{
+    text-align: center;
+}
+
+th.thead-indicator.clickable:hover{
+    color: white;
+    background-color:  #007bff;
+}
+
+th.thead-indicator.clickable{
+    cursor: pointer;
+}

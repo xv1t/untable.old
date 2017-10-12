@@ -286,6 +286,8 @@
 	   rect.width = $(this).outerWidth();
 	   rect.height= $(this).outerHeight();
 	   
+	   rect.left  = $(this).offset().left;
+	   
 	   if ($(this)[0].tagName === 'TD'){
 		rect.left += 3;
 		rect.width -= 3;
@@ -588,7 +590,19 @@
                     untable_methods.fakerow.call(this);
 		    $(this).data('options').cols[i] = col;
 		}
-                
+
+		//theadBtn
+		if (typeof $(this).data('options').theadBtn === 'object'){
+		  //
+		  var theadBtn = $(this).data('options').theadBtn;
+		  $(this).find('thead tr.columns th.thead-indicator:first')
+		   .html(theadBtn.html || theadBtn.fa ? fa(theadBtn.fa) : null)
+		   .click(theadBtn.click)
+		   .attr('title', theadBtn.title)
+		   .addClass('clickable')
+		   .addClass(theadBtn.class)
+		   .css(theadBtn.css || {});
+		}
                 
 		return this;
 	 },	 
@@ -607,6 +621,11 @@
 	   alert('Column menu')
 	 },
 	 construct: function(){
+	   
+		$(this).css({
+		    height: $(this).data('options').height
+		});
+	   
 		//Calculate component sizes
 		var height = {
 		    user: $(this).data('options').height,
@@ -769,6 +788,8 @@
 						}); /**/
 					 } else {
 						//error deleting on the remote
+						console.error('Delete failed!')
+						$(this).removeClass('deleted')
 						$(this).untable().trigger( TRIGGER.ERROR.DELETE , [{
 						    context: this,
 						    id: $(this).data('id'),
@@ -780,7 +801,7 @@
 			   });
 
 			   //$(this).trigger('untable.modified');
-		    } else {
+		    } else {			   
 			   $(context).removeClass('deleted');
 			   $(context).untable().trigger( TRIGGER.CANCEL.DELETE , [{
 				  context: context,
@@ -956,7 +977,7 @@
 				  context_menu: true,
 				  create_template: false,
 				  data        : [],
-				  dataPrefix  : undefined, //for deep of data
+				  dataPrefix  : null, //for deep of data
 				  details     : [],
 				  displayField: 'name',
 				  draggable   : false,
@@ -964,16 +985,17 @@
 				  first       : true,
 				  height      : 600,
 				  lookupMode  : false,
-				  filterModel : undefined,
+				  filterModel : null,
 				  multi_select: false,
 				  pagination  : true,
-				  rest        : {},
+				  rest        : {url: null, data: {} },
 				  primaryKey  : 'id',
 				  readonly    : false,
 				  row_indicator: true,
 				  tfoot       : true,
+				  theadBtn    : false, //thead left indicator cell as a button
 				  toolbar     : true,
-				  on		    : undefined
+				  on		    : null
 				  
 			   }, 
 			   options)
@@ -1685,9 +1707,6 @@
 			   '</div>'
 		    )
 		);
-		$(this).css({
-		    height: $(this).data('options').height
-		});
 
 		$(this)
 		   .find('.untable-tbody-wrapper')
@@ -1720,6 +1739,12 @@
 
 		return keys;
 	 },
+	 
+	 set_height: function(newHeight){
+	   $(this).data('options').height = newHeight;
+	   untable_methods.construct.call(this)
+	 },
+	 
 	 /**
 	  * trigger: select.untable.row
 	  * @returns {Boolean}
