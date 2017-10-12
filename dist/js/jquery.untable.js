@@ -371,9 +371,13 @@
 
 		//set button status
 		$(this).untable().find('button.btn-save,button.btn-undo')
-			   .removeClass('disabled')
+			   .removeClass('disabled');
 
 		$(this).untable().trigger( TRIGGER.AFTER.CHANGE , [status]);
+                
+                if ($(this).untable().data('options').saveImmediately === true){
+                    $(this).untable('save');
+                }
 	 },
 	 changed: function(){
 		var i;
@@ -707,14 +711,16 @@
 			   );
 		$tr.trigger('click');
 		$tr
-			   .find('input:first')
-			   .focus()
-			   .select();
-
+                    .find('input:first')
+                    .focus()
+                    .select();
 
 		console.log(create_template);
 		$(this).trigger( TRIGGER.MODIFIED );
-
+                
+                if ($(this).untable().data('options').saveImmediately === true){
+                    $(this).untable('save');
+                }
 
 		$(this).find('.untable-tbody-wrapper')
 		    .scrollTop(10000)
@@ -992,6 +998,7 @@
 				  primaryKey  : 'id',
 				  readonly    : false,
 				  row_indicator: true,
+                                  saveImmediately: false,
 				  tfoot       : true,
 				  theadBtn    : false, //thead left indicator cell as a button
 				  toolbar     : true,
@@ -1415,15 +1422,23 @@
 		  $tr
 		   .off('dragstart')
 		   .on('dragstart', function(e){
-			e.originalEvent.dataTransfer.setData('data', datum)
+                       
+                       var attributes = {};
+                       
+                       console.log('attributes', $(this).untable()[0].attributes);
+                       
+                       for (var i = 0; i < $(this).untable()[0].attributes.length; i++){
+                           var attr = $(this).untable()[0].attributes[i].nodeName;
+                           var attrValue = $(this).untable()[0].attributes[i].nodeValue;
+                           attributes[ attr ] = attrValue;                           
+                       }
+                       
+                       console.log('attributes', attributes);
+                       
 			e.originalEvent.dataTransfer.setData('json', JSON.stringify({
 			  data: datum,
-			  untable: {
-			    uid: $(this).untable().attr('untable-uid'),
-			    untable: $(this).untable().attr('untable'),
-			    id:  $(this).untable().attr('id')
-			  }
-			}))
+			  untable: attributes
+			}));
 			console.log('dragstart row', this);
 		   })
 		    .attr('draggable', 'true')
