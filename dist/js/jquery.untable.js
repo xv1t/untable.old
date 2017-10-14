@@ -969,43 +969,7 @@
 	 },
 	 init: function(options){                        
 		$(this).data('options',
-		    $.extend(
-			   { //Default options
-			       allowCreate : true,
-			       allowDelete : true,
-			       allowEdit   : true,
-				  autofilter  : false,
-				  autoload    : true,
-				  auto_save   : false,      
-				  buttons	    : [], //user custom buttons
-				  cols        : [],
-				  columns     : true,
-				  context_menu: true,
-				  create_template: false,
-				  data        : [],
-				  dataPrefix  : null, //for deep of data
-				  details     : [],
-				  displayField: 'name',
-				  draggable   : false,
-				  foreignKey  : null,
-				  first       : true,
-				  height      : 600,
-				  lookupMode  : false,
-				  filterModel : null,
-				  multi_select: false,
-				  pagination  : true,
-				  rest        : {url: null, data: {} },
-				  primaryKey  : 'id',
-				  readonly    : false,
-				  row_indicator: true,
-                                  saveImmediately: false,
-				  tfoot       : true,
-				  theadBtn    : false, //thead left indicator cell as a button
-				  toolbar     : true,
-				  on		    : null
-				  
-			   }, 
-			   options)
+		    $.extend(true, {}, $.fn.untable.defaults, options)
 		);
   
 		$(this).attr('untable-uid', untablesCounter++);
@@ -2004,21 +1968,9 @@
   };
 
   var unselect_methods = {
-    init: function(options){
-	 
+    init: function(options){	 
 	 $(this).data('options',
-		$.extend(
-		    { //Default options
-			 placeholder: '',
-			 displayField: 'name',
-			 displayValue: undefined,
-			 focusFilter: true,
-			 focusRows  : false,
-			 name	  : null,
-			 value	  : null,
-			 untable: {}
-		    }, 
-		    options)
+	   $.extend(true, {}, $.fn.unselect.defaults, options)
 	 );
 	 
 	 $(this).attr('unselect_uid', untablesCounter++);
@@ -2246,32 +2198,30 @@
     var method = undefined;
     var options = {};    
     
-      if (typeof arguments[0] === 'object'){
-            options = arguments[0];
-            return unselect_methods.init.call(this, arguments[0]);
-        }
-        
-        if (typeof arguments[0] === 'string'){
-            method = arguments[0];
-        };
-        
-        //check without arguments
-        
-        if (arguments.length === 0){
-            method = 'this';
-        }   
-	   
-        if (unselect_methods[ method ]){          
-		  return unselect_methods[method]
-			 .apply( this, Array.prototype.slice.call( arguments, 1 ));
-        } 
-        else {
-            $.error('Method "$(object).unselect(\'' + method + '\') not found');
-        }	   
+    if (typeof arguments[0] === 'object'){
+	 options = arguments[0];
+	 return unselect_methods.init.call(this, arguments[0]);
+	 }
+
+    if (typeof arguments[0] === 'string'){
+	 method = arguments[0];
+	 };
+
+    //check without arguments
+
+    if (arguments.length === 0){
+	 method = 'this';
+	 }   
+
+    if (unselect_methods[ method ]){          
+	 return unselect_methods[method]
+	   .apply( this, Array.prototype.slice.call( arguments, 1 ));
+    } else {
+	   $.error('Method "$(object).unselect(\'' + method + '\') not found');
+    }	   
     
-    return $(this).each(function(){
-	 
-	   if ($(this).data('unselect')){
+    return $(this).each(function(){	 
+	 if ($(this).data('unselect')){
 		  //exist
 	   } else {            
 		  $(this).data('unselect', true);
@@ -2279,7 +2229,19 @@
 	   }
     });  
   };
-
+  
+  //unselect defaults
+  $.fn.unselect.defaults = {
+    placeholder: '',
+    displayField: 'name',
+    displayValue: undefined,
+    focusFilter: true,
+    focusRows  : false,
+    name	  : null,
+    value	  : null,
+    untable: {}    
+  };
+  
   //Main table element
   $.fn.untable = function(){
 	 var method = undefined;
@@ -2326,5 +2288,42 @@
             }
         });        
     };
-        
+    
+  //untable defaults
+  $.fn.untable.defaults = {
+    allowCreate : true,
+    allowDelete : true,
+    allowEdit   : true,
+    autofilter  : false,
+    autoload    : true,
+    auto_save   : false,      
+    buttons	 : [], //user custom buttons
+    cols        : [],
+    columns     : true,
+    context_menu: true,
+    create_template: false,
+    data        : [],
+    dataPrefix  : null, //for deep of data
+    details     : [],
+    displayField: 'name',
+    draggable   : false,
+    foreignKey  : null,
+    first       : true,
+    height      : 600,
+    lookupMode  : false,
+    filterModel : null,
+    multi_select: false,
+    pagination  : true,
+    rest        : {
+	 url: null, 
+	 data: {} },
+    primaryKey  : 'id',
+    readonly    : false,
+    row_indicator: true,
+    saveImmediately: false,
+    tfoot       : true,
+    theadBtn    : false, //thead left indicator cell as a button
+    toolbar     : true,
+    on		 : null    
+  };
 })(jQuery);   
