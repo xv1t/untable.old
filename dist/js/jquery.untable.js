@@ -1,8 +1,6 @@
 /*
- * Untable.js
- * Table GUI element with full edit control 
- * remote data
- * REST
+ * Untable.js (https://github.com/xv1t/untable)
+ * Copyright (c) Fedotov Victor (https://github.com/xv1t)
  */
 (function($){
      
@@ -1979,12 +1977,7 @@
 
 	 //untable extends
 	 $(this).data('options').untable = 
-	   $.extend({
-		toolbar: false,
-		height: 450,
-		readonly: true,
-		lookupMode: true
-	   }, $(this).data('options').untable)
+	   $.extend($.fn.unselect.defaults.untable, $(this).data('options').untable);
 	 
 	 $(this)
 	   .attr('type', 'text')		    
@@ -2239,7 +2232,12 @@
     focusRows  : false,
     name	  : null,
     value	  : null,
-    untable: {}    
+    untable: {
+        toolbar: false,
+        height: 450,
+        readonly: true,
+        lookupMode: true        
+    }    
   };
   
   //Main table element
