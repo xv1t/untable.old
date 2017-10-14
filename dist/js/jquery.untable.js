@@ -969,47 +969,7 @@
 	 },
 	 init: function(options){                        
 		$(this).data('options',
-<<<<<<< HEAD
 		    $.extend(true, {}, $.fn.untable.defaults, options)
-=======
-		    $.extend(
-			   { //Default options
-			       allowCreate : true,
-			       allowDelete : true,
-			       allowEdit   : true,
-				  autofilter  : false,
-				  autoload    : true,
-				  auto_save   : false,      
-				  buttons	    : [], //user custom buttons
-				  cols        : [],
-				  columns     : true,
-				  context_menu: true,
-				  create_template: false,
-				  data        : [],
-				  dataPrefix  : null, //for deep of data
-				  details     : [],
-				  displayField: 'name',
-				  draggable   : false,
-				  foreignKey  : null,
-				  first       : true,
-				  height      : 600,
-				  lookupMode  : false,
-				  filterModel : null,
-				  multi_select: false,
-				  pagination  : true,
-				  rest        : {url: null, data: {} },
-				  primaryKey  : 'id',
-				  readonly    : false,
-				  row_indicator: true,
-                                  saveImmediately: false,
-				  tfoot       : true,
-				  theadBtn    : false, //thead left indicator cell as a button
-				  toolbar     : true,
-				  on		    : null
-				  
-			   }, 
-			   options)
->>>>>>> bd4f37338b965aeb6aaa1277fa734bd263555c82
 		);
   
 		$(this).attr('untable-uid', untablesCounter++);
