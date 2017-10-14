@@ -60,10 +60,22 @@
                 $contain = empty($this->request->query['contain'])
                             ? []
                             : $this->request->query['contain'];
+                
                 if ($id){
-                    $res['data'] = $this->$modelName->get($id, [
-                        'contain' => $contain,                        
-                    ]);
+                    
+                    $get_options = [
+                        'contain' => $contain, 
+                    ];
+                    
+                    $findType = empty($this->request->query['findType'])
+                            ? null
+                            : $this->request->query['findType'];
+                    
+                    if ($findType){
+                        $get_options['finder'] = $findType;
+                    }
+                    
+                    $res['data'] = $this->$modelName->get($id, $get_options);
                 } else {
                     $limit = empty($this->request->query['limit']) 
                                 ? 100
@@ -87,6 +99,10 @@
                             ? []
                             : $this->request->query['filters'];
                     
+                    $having = empty($this->request->query['having'])
+                            ? []
+                            : $this->request->query['having'];
+                    
                     
                     $conditions = empty($this->request->query['conditions'])
                             ? []
@@ -102,8 +118,41 @@
                     
                     
                     if ($filters){
-                        foreach ($filters as $filter_rule){
-                            $conditions[] = [
+                        
+                        foreach ($filters as $filter_rule){                            
+                            if (!empty($filter_rule['search']) 
+                                    && !empty($filter_rule['field'])){
+                                
+                                if (!empty($filter_rule['type'])
+                                    && $filter_rule['type'] == 'boolean'    
+                                        ) {
+                                    
+                                    $conditions[] = [
+                                    $filter_rule['field'] . ' IS' => 
+                                        $filter_rule['search'] === 'true'
+                                            ];
+                                    
+                                    continue;
+                                }
+                                
+                                $conditions[] = [
+                                    $filter_rule['field'] . ' LIKE' => 
+                                    str_replace('*', '%', 
+                                        $filter_rule['search']) . '%'
+                                ];
+                            }
+                            
+                            if ( !empty($filter_rule['sql']) ){
+                                $conditions[] = $filter_rule['sql'];
+                            }
+                        }
+                    }
+                    
+                    $conditions_having = [];
+                    
+                    if ($having){
+                        foreach ($having as $filter_rule){
+                            $conditions_having[] = [
                                 $filter_rule['field'] . ' LIKE' => 
                                 str_replace('*', '%', 
                                     $filter_rule['search']) . '%'
@@ -118,7 +167,8 @@
                         'join' => $join,
                         'options' => $options,
                         'contain' => $contain,
-                        'conditions' => $conditions
+                        'conditions' => $conditions,
+                        'having' => $conditions_having
                     ];
                     
                     $this->__rest_before_get($query_options);
@@ -128,6 +178,7 @@
                     
                     //return result
                     $res['data'] =$query;
+                   
                     $res['pagination']['page'] =$page;
                     $res['pagination']['total_count'] =$query->count();
                     
@@ -156,6 +207,11 @@
                 //update records
                 if ($id){
                     //once row
+                    $entity = $this->$modelName->get($id);
+                    $entity = $this->$modelName->patchEntity($entity, $this->request->getData());
+                    $save_status = $this->$modelName->save($entity);
+                    $res['saved_status'] = $save_status;
+                    $res['status'] = $save_status ? 'success' : 'error';
                 } else {
                     //many
                     $updated = [];
@@ -174,14 +230,15 @@
                             $this->$modelName->patchEntity($datum, $row['data']);
                             
                             $saved_res = [
-                                        'id' => $row['id'],
-                                        'cid' => $row['cid'],
-                                        'status' => 'error',
-                                        'datum' => $datum
-                                    ];
+                                'id' => $row['id'],
+                                'cid' => $row['cid'],
+                                'status' => 'error',
+                                'datum' => $datum
+                            ];
                             
                             $saved_status = $this->$modelName->save($datum, [
-                                'checkRules' => false
+                                'checkRules' => false,
+                                'associated' => false
                             ]);
                             
                             $saved_res['debug'] = $saved_status;
@@ -225,7 +282,8 @@
                                     ];
                             
                             $saved_status = $this->$modelName->save($entity, [
-                                'checkRules' => false
+                                'checkRules' => false,
+                                'associated' => false
                             ]);
                             
                             if ($saved_status){
