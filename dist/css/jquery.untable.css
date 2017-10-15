@@ -110,19 +110,16 @@
 }
 
 .focused-border{
-    background-color: red;
-    border: 2px solid #007bff;
-    border: none;
     position: absolute;
 }
 
 .untable tbody tr.selected td.row-indicator,
 .untable thead th.focused,
 .untable thead th.focused select.filter-boolean,
-.untable tfoot td.focused
+.untable tfoot td.focused,
+.focused-border
 {
     color:white;
-    background: #ed9017; 
     background: #007bff; 
 }
 

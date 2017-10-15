@@ -277,12 +277,10 @@
             rect.width = $(td).outerWidth();
             rect.height= $(td).outerHeight();
             rect.left  = $(td).offset().left;
-
-            if ($(this)[0].tagName === 'TD'){
-                //rect.left += 3;
-               // rect.width -= 3;
-            }
-
+            
+            //select row
+            untable_methods.select_row.call( $(this).closest('tr') );
+            
             var focusBorderWidth = $.fn.untable.defaults.focusBorderWidth || 6;
             
             //add 4 lines
