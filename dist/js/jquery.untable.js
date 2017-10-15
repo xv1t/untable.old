@@ -61,6 +61,7 @@
               FOCUS       : 'untable.focus',
               BLUR        : 'untable.blur',
               CLEAR       : 'untable.clear',
+              CLOSE       : 'untable.close',
               CHOOSE      : 'untable.choose' //<--choose row in the lookup mode
     };
 
@@ -272,49 +273,51 @@
 
             td.addClass('focused');
             
-            rect       = $(this).position();
-            rect.width = $(this).outerWidth();
-            rect.height= $(this).outerHeight();
-            rect.left  = $(this).offset().left;
+            rect       = $(td).position();
+            rect.width = $(td).outerWidth();
+            rect.height= $(td).outerHeight();
+            rect.left  = $(td).offset().left;
 
             if ($(this)[0].tagName === 'TD'){
-                rect.left += 3;
-                rect.width -= 3;
+                //rect.left += 3;
+               // rect.width -= 3;
             }
 
+            var focusBorderWidth = $.fn.untable.defaults.focusBorderWidth || 6;
+            
             //add 4 lines
             $('body').append(
                 $('<div>') //left
                     .addClass('focused-border')
                     .css({
-                        top: rect.top - 2 ,
-                        left: rect.left - 6,
-                        width: 1,
-                        height: rect.height +4
+                        top: rect.top - focusBorderWidth/2 ,
+                        left: rect.left - focusBorderWidth/2,
+                        width: focusBorderWidth,
+                        height: rect.height + focusBorderWidth
                     }),
                 $('<div>') //top
                     .addClass('focused-border')
                     .css({
-                        top: rect.top - 2 ,
-                        left: rect.left - 6,
-                        width: rect.width + 10,
-                        height: 1
+                        top: rect.top - focusBorderWidth/2 ,
+                        left: rect.left - focusBorderWidth/2,
+                        width: rect.width + focusBorderWidth,
+                        height: focusBorderWidth
                     }),
                 $('<div>') //right
                     .addClass('focused-border')
                     .css({
-                        top: rect.top - 2 ,
-                        left: rect.left + rect.width,
-                        width: 1,
-                        height: rect.height + 4
+                        top: rect.top - focusBorderWidth/2 ,
+                        left: rect.left + rect.width - focusBorderWidth/2,
+                        width: focusBorderWidth,
+                        height: rect.height + focusBorderWidth
                     }),
                 $('<div>') //right
                     .addClass('focused-border')
                     .css({
-                        top: rect.top + rect.height ,
-                        left: rect.left - 6 ,
-                        width: rect.width + 10,
-                        height: 1
+                        top: rect.top + rect.height - focusBorderWidth/2,
+                        left: rect.left - focusBorderWidth/2,
+                        width: rect.width + focusBorderWidth/2,
+                        height: focusBorderWidth
                     }),
             );
 	}, //cell_focus
@@ -502,10 +505,12 @@
                                         switch (e.keyCode){
                                             case UNTABLE_KEYCODE_27_ESCAPE:
                                                 if ( $(this).untable('options').lookupMode === true ){
-                                                    $(this).untable('destroy');
+                                                    $(this).trigger(TRIGGER.CLOSE)
+                                                    
                                                     $('.unselect-opened')
                                                         .removeClass('.unselect-opened')
                                                         .focus();
+                                                    $(this).untable('destroy');
                                                     return;
                                                 }
 
@@ -1227,6 +1232,7 @@
 
                 case UNTABLE_KEYCODE_27_ESCAPE: //esacep
                     if ( $(this).untable('options').lookupMode === true ){
+                        $(this).trigger(TRIGGER.CLOSE)
                          $(this).untable().remove();
                     }
                     break;
@@ -1930,13 +1936,12 @@
               $.extend(true, {}, $.fn.unselect.defaults, options)
             );
 
-            $(this).attr('unselect_uid', untablesCounter++);
-
             var init_val = $(this).val();
 
             //untable extends
             $(this).data('options').untable = 
                 $.extend(
+                    true, {},
                     $.fn.unselect.defaults.untable,
                     $(this).data('options').untable);
 
@@ -1978,6 +1983,8 @@
                     .attr('name', $(this).data('options').name)
                     .val( $(this).data('options').value || init_val )
             );
+    
+            $(this).attr('unselect_uid', untablesCounter++);
 
               //user triggers in `options.on`
 
@@ -1987,9 +1994,9 @@
                         $(this).on( trigger_name, $(this).data('options').on[ trigger_name ] );
                 }
             }	 
-
+            console.log('Set trigger', $(this).data('options'))
             $(this).trigger('unselect.before.init');
-            return this;
+            return $(this);
         },
         
         val: function(){
@@ -2102,12 +2109,26 @@
                 .css(css)
                 .on('mouseleave', function(e){
                     //$(this).trigger('hidelookup')
+                    var unselect_uid = $(this).data('unselect_uid');
+                    
+                    var unselect = $(`[unselect_uid=${unselect_uid}]`);
+                    
+                    $(unselect).removeClass('unselect-opened');
+            
                     $(this).remove();
                 })
-                .untable( $(this).data('options').untable );
+                .untable( $(this).data('options').untable )
+                .data('unselect_uid', $(this).attr('unselect_uid')) //set chain with unselect
 
             $('.untable.unselect-lookup')
                 .focus()
+                .on( TRIGGER.CLOSE, function(e,status){
+                    console.log('close lookup');
+                    var unselect_uid = $(this).data('unselect_uid');
+                    var unselect = $(`[unselect_uid=${unselect_uid}]`);
+
+                    $(unselect).removeClass('unselect-opened');
+                })
                 .on( TRIGGER.CHOOSE, function(e,status){
                     if (status.selected){
 
@@ -2123,6 +2144,8 @@
                             .val(status.displayValue)
                             .data('value', status.selected)				  
                             .trigger('change')
+                            .removeClass('unselect-opened')
+                            .addClass('changed')
                             .focus();
                         }
                 });
@@ -2262,6 +2285,7 @@
         details     : [],
         displayField: 'name',
         draggable   : false,
+        focusBorderWidth: 5,
         foreignKey  : null,
         first       : true,
         height      : 600,
