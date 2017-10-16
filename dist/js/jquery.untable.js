@@ -243,16 +243,20 @@
 	}, //</autofilter_change>
          
 	cell_focuced_remove: function(){
+            console.log('untable.cell_focuced_remove: "', arguments[0] , '"')
             $('.focused-border').remove();
 	},
         
 	cell_blur: function(){
+            console.log('untable.cell_blur', this, $(this).hasClass('unselect-opened'));
+            
             if ( $(this).hasClass('unselect-opened') ){
-                 return;
+                console.log('hasClass(unselect-opened)', true)
+                return;
             }
             
             $(this).closest('td').removeClass('focused');
-            untable_methods.cell_focuced_remove();
+            untable_methods.cell_focuced_remove('untable.cell_blur');
 	 },
          
 	cell_border: function(rect){
@@ -260,13 +264,14 @@
 	},
          
 	cell_focus: function(e){
-            untable_methods.cell_focuced_remove();
-            console.log('cell focus', this);
+            
+            console.log('untable.cell_focus', this);
             e.preventDefault();
             untable_methods.col_focus.call(this);
 
             if ( $(this).untable('options').lookupMode === true )
                 return;
+            untable_methods.cell_focuced_remove('untable.cell_focus');
             
             //cell border
             var td = $(this)[0].tagName === 'TD' ? $(this) :  $(this).closest('td');
@@ -287,6 +292,7 @@
             $('body').append(
                 $('<div>') //left
                     .addClass('focused-border')
+                    .attr('aria-untable-uid', $(this).untable().attr('untable-uid'))
                     .css({
                         top: rect.top - focusBorderWidth/2 ,
                         left: rect.left - focusBorderWidth/2,
@@ -548,7 +554,7 @@
                             break;
                     } //switch
                 }
-
+                
                 //fill autofilter
                 $(this)
                     .find('tr.autofilter')
@@ -567,6 +573,12 @@
                                 'text-align': col.align
                             })
                     );
+                   
+                if ( autofilter_control ){
+                    autofilter_control.on('blur', function(){
+                        console.log('filter input blur')
+                    })
+                }
 
                 //fill tfoot
                 $(this)
@@ -881,7 +893,9 @@
             }
 
             $(this).trigger( TRIGGER.BEFORE.FETCH , [page]);
-            untable_methods.cell_focuced_remove();
+            if ( $(this).untable('options').lookupMode !== true ){
+                untable_methods.cell_focuced_remove('untable.fetch');
+            }
 
             $(this).data('options').rest.data.page = page;
 
@@ -1023,7 +1037,7 @@
                 if (tab_id){
                     $('#' + tab_id)
                         .on('hidden.bs.tab', function(){
-                            untable_methods.cell_focuced_remove();
+                            untable_methods.cell_focuced_remove('hidden.bs.tab');
                             })
                         .on('shown.bs.tab', function(){
                             var tab_id = $(this).attr('aria-controls');
@@ -1043,7 +1057,7 @@
                     if ( parent_tab_id ){
                         $('#' + parent_tab_id)
                         .on('hidden.bs.tab', function(){
-                            untable_methods.cell_focuced_remove();
+                            untable_methods.cell_focuced_remove('hidden.bs.tab');
                         });
                     }
                 }
@@ -1653,7 +1667,9 @@
                     $(this).closest('.untable')
                         .find('.untable-thead-wrapper, .untable-tfoot-wrapper')
                         .scrollLeft(this.scrollLeft);
-                    untable_methods.cell_focuced_remove();	  
+                    if ( $(this).untable('options').lookupMode !== true ){
+                        untable_methods.cell_focuced_remove('scroll');	  
+                    }
                 });
 
             return this;
@@ -1992,7 +2008,7 @@
                         $(this).on( trigger_name, $(this).data('options').on[ trigger_name ] );
                 }
             }	 
-            console.log('Set trigger', $(this).data('options'))
+
             $(this).trigger('unselect.before.init');
             return $(this);
         },
@@ -2081,13 +2097,16 @@
              //delete all
             $('.unselect-lookup').remove();
             $('.unselect-opened')
-                       .removeClass('unselect-opened')
+                .removeClass('unselect-opened');
+               
             $(this).addClass('unselect-opened');
 
             $('body').append(
               $('<div>')
-                    .addClass('untable unselect-lookup')		  
+                .addClass('untable unselect-lookup')		  
             );
+
+            console.log('unselect.open');
 
             console.log({
                 position: $(this).position(),

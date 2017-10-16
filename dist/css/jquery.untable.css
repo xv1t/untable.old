@@ -120,7 +120,7 @@
 .focused-border
 {
     color:white;
-    background: #007bff; 
+    background: #007bff  !important; 
 }
 
 .untable input:focus{
