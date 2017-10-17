@@ -2118,7 +2118,7 @@
                          0  + $(this).offset().top
                               + $(this).outerHeight(),
                 left    : $(this).offset().left,
-                width   : $(this).outerWidth(),
+                width   : $(this).data('options').untable.width || $(this).outerWidth(),
                 'background-color': 'white',
             };
 
