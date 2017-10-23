@@ -1,4 +1,6 @@
 /*
+ * 
+ * Depricated library: use untable.js
  * Untable.js (https://github.com/xv1t/untable)
  * Copyright (c) Fedotov Victor (https://github.com/xv1t)
  */
@@ -120,7 +122,7 @@
     function fa(icon_class){
         return '<i class="fa fa-' + icon_class + '"></i>';
     }
-
+    
     var untable_methods = {        
 	added: function(){
             var i;
@@ -1772,7 +1774,10 @@
                                  row.updated = false;
                                  row.deleted = false;
                                  row.id = added_row.id; // <---- new id
-
+                                 console.log('add.success', {
+                                        row: row,
+                                        added_row: added_row
+                                    })
                                  row.datum = $.extend( row.datum, added_row.datum );
 
                                  $tr = $(this).find('tbody tr[data-cid=' + row.cid + ']');
