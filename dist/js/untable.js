@@ -7,6 +7,8 @@
 
     var untable_instance_counter = 0;
     
+    var controlKeys = [9,13,16,17,18,27,33,34,35,36,37,38,39,40,45,46,116];
+    
     function fa(icon_class){
         return '<i class="fa fa-' + icon_class + '"></i>';
     }    
@@ -64,12 +66,16 @@
 
             this.data = JSON.parse( JSON.stringify(this.prev) );
             this.changed = {};
+            this.modified = false;
 
+            this.setRowValues({changed: false});
+            
             //revert table cells
+            /*
             for (var key in this.cells){
                 var val = this.get(key);
                 this.setCellVal(key, val, {callback: false, reset: true});
-            }
+            } */
 
             $(this).trigger('reset');
         },
@@ -86,13 +92,13 @@
 
             $(this).trigger('commit.unentity');
         },
-
+        
         /**
-         * Create tr with td cells
-         * Check editable cell
+         * Construct row, or reset all
+         * insert control cells, event, types into row
          * @returns {undefined}
          */
-        render: function(){
+        makeRow: function(){
             this.tr.empty();
             this.cells = [];
 
@@ -102,31 +108,10 @@
                         .addClass('row-indicator')
                  );
             }
-
+            
+            //create cells controls
             for (var i = 0; i < this.untable.columns.length; i++){
                 var column = this.untable.columns[i];
-
-                var control_type = 'string';
-
-                if ( column.type in $.untable.columnsTypes ){
-                    control_type = $.untable.columnsTypes[column.type].control;
-                }
-
-                var control = $('<input>')
-                    .attr('type', control_type)
-                    .attr('data-col', i)
-                    .attr('name', column.field)
-                    .val( this.get( column.field )  );
-
-                 switch (column.type){
-                    case 'boolean':
-                        control.prop('checked', this.get( column.field ) )
-                        break;
-                    case 'unselect':
-
-                        break;
-                 }
-
                 var td = $('<td>')
                     .attr('data-col', i)
                     .css({
@@ -135,42 +120,201 @@
                         'width': column.width,
                         display: column.visible ? 'table-cell' : 'none',
                         'text-align': column.align
-                    })
-                    .append(control);
-
-                if (this.untable.readonly || !column.editable){
-                    control.attr('readonly', true);
-                    control.attr('disabled', true);
+                    });
+                    
+                var control_type = 'text';
+                var editable = false;
+                
+                if (column.editable){
+                    editable = true;
                 }
-
-                this.cells[ column.field ] = control;
+                
+                if (this.untable.readonly === true){
+                    editable = false;
+                }
+                
+                if (column.type in $.untable.columnsTypes 
+                    && $.untable.columnsTypes[ column.type ].control){
+                    control_type = $.untable.columnsTypes[ column.type ].control;
+                    
+                    if (!editable && $.untable.columnsTypes[ column.type ].readonlyControl){
+                        control_type = 
+                            $.untable.columnsTypes[ column.type ].readonlyControl;
+                    }
+                }
+                
                 this.tr.append(td);
                 
-                //check changed status
-                if (column.field in this.changed){
-                    control.addClass('changed');
-                    td.addClass('changed');
-                }
-
+                var control = $('<input>')
+                    .attr('type', control_type)
+                    .attr('data-col', i)
+                    .attr('name', column.field)
+                    .addClass( !editable ? 'disabled-control' : undefined )
+                    .addClass('control-align-' + column.align);
+                   
+                td.append(control);
+                this.cells[ column.field ] = control;
+                
+                if ( !editable ){
+                    //disable all mouse, keyboard events but couldnot lose focus!
+                    control
+                        .attr('autocomplete', 'off')	
+                        .on('keypress keyup keydown', function(e){
+                            if ( controlKeys.indexOf( e.keyCode) >= 0){
+                                return;
+                            }
+                            e.preventDefault();  
+                            return false;
+                        })
+                        .on('paste cut', function(e){
+                             e.preventDefault();
+                        })
+                    if ( column.type === 'boolean' ){
+                        control
+                         .on('click', function(){
+                             return false;
+                         })
+                    }
+                } else {
+                    control
+                        .on('change', this.controlOnChange)
+                        
+                    }; //else
+                    
                 control
-                    .on('change', this.controlOnChange)
                     .on('focus', function(){
-                        console.log('focus control');
                         var cid = $(this).closest('tr').data('cid');
-                        $(this).closest('tr').data('entity').untable.set_current(cid);
-                    })
-                    .on('blur', function(){
-                        console.log('blur control');
-                    })
-                    .on('keyup', function(e){
-                        if ( e.keyCode === 27 /*ESCAPE*/ ){
-                            $(this).closest('tr').focus();
-                            $(this).closest('tr').data('entity').undo();
-
+                        
+                        var entity =$(this).closest('tr').data('entity');
+                        
+                        entity.untable.set_current(cid);
+                        
+                        if (entity.untable.unselectMode){
+                            return;
                         }
-                    })
-                }
-            },
+
+                        if ( ! $(this).hasClass('unselect-opened') ){
+                            $.unselect.closeAll();
+                        }
+                    });                
+            }
+        },
+        
+        /**
+         * set the values of the cells
+         * @returns {undefined}
+         */
+        setRowValues: function(options){
+            for (var i = 0; i < this.untable.columns.length; i++){
+                this.setCellValueFromData( this.untable.columns[i].field, options );
+            }
+        },
+        
+        /**
+         * Set value of single cell from the Entity data
+         * @returns {undefined}
+         */
+        setCellValueFromData: function(field, options){
+            var column = this.untable.columns.find(function(__column){
+                return __column.field === field
+            });
+            
+            if (!column){
+                return;
+            }
+            
+            options = options || {};
+            
+            
+            var control = this.cells[ field ];
+            var editable = false;
+
+            if (column.editable){
+                editable = true;
+            }
+            
+            if (this.untable.readonly === true){
+                editable = false;
+            }
+            
+            if (options.changed === false){
+                control.removeClass('changed');
+                control.parent().removeClass('changed');
+            }
+            
+            if (options.changed === true){
+                control.addClass('changed');
+                control.parent().addClass('changed');
+            }
+            
+            
+            cell_value = this.get(field);
+            
+            switch (column.type) {
+                case 'boolean':
+                    control.prop('checked', cell_value === true )
+                    break;
+                    
+                case 'date':
+                    if ( typeof cell_value === 'string'){
+                        //Extract date from fucking format 2017-09-12T00:00:00+00:00
+                        cell_value = cell_value.split('T')[0];
+                    } else {
+                        cell_value = null;
+                    }
+                    
+                    control.val(cell_value);
+                    break;
+                    
+                case 'unselect':
+                    
+                    if (editable){                    
+                        if ( control.data('unselect') ){
+                            //update
+                            var unselect = control.data('unselect');
+                            unselect.set(
+                                cell_value,
+                                this.get( column.unselect.field ),
+                                {dontSync:true}
+                             )
+                        } else {
+                            //create unselect element
+                            var unselectOptions = $.extend(true, {}, column.unselect);
+                            unselectOptions.text = this.get( column.unselect.field );
+
+                            unselectOptions.untableSource = {
+                                entity: this,
+                                column: column,
+                                untable: this.untable
+                            };
+
+                            $(control).unselect( unselectOptions );
+                            this.unselectObject = $(control).data('unselect');
+                        }
+                    } else {
+                        //readonly lookup
+                        control.val( this.get( column.unselect.field ) );
+                    }
+                    break;
+                     
+                default:
+                    control.val(cell_value)
+                    break;
+            }
+             
+        },
+        
+
+        /**
+         * Create tr with td cells
+         * Check editable cell
+         * @returns {undefined}
+         */
+        render: function(){
+            
+            this.makeRow();
+            this.setRowValues();
+        },
 
         /**
          * Context: <input>
@@ -239,13 +383,47 @@
 
             return key.split('.').length
         },
+        
+        /**
+         * delete rwcord
+         * @returns {undefined}
+         */
+        delete: function(){                    
+            $.ajax({
+                url: this.untable.rest.url + '/' + this.id,
+                type: 'DELETE',
+                context: this,
+                success: function(res){                            
+                    if (res.status === 'success'){
+                        console.log('Delete', res);
+
+                        var untable = this.untable;
+
+                        untable.next();
+                        this.tr.remove();
+                        
+                        var cid = this.cid;
+                        
+                        untable.entities[ this.cid ] = null;
+                        delete untable.entities[ cid ];
+
+                        if (!untable.get_current()){
+                            untable.last();
+                        }
+
+                    } else {
+                        console.warn('Record not deleted on remote side!')
+                    }
+                }
+            });
+        },
 
         /**
          * Delete key from object
          * @param {string} key
          * @returns {undefined}
          */
-        delete: function(key, options){
+        removeKey: function(key, options){
             options = options || {}
             if ( ! this.isset(key) ){
                 return false;
@@ -355,20 +533,40 @@
             return $.ajax( ajaxOptions );
         },
 
-        setCellVal: function(key, value, options){
+        disable_setCellVal: function(key, value, options){
             if ( key in this.cells && key in this.untable.columnKeys ){
 
                 options = options || {};
                 var column = this.untable.get_col( key );
+                var cell_value = value;
+                
+                var control = this.cells[ key ];
+                
+                
+                 switch (column.type){
+                     case 'unselect': 
+                         control.data('unselect').set(
+                            cell_value,
+                            this.get( column.unselect.field ),
+                            {dontSync: true}
+                         );
+                         break;
+                     case 'date': 
+                         cell_value = null
+                         if ( typeof value === 'string' ){
+                             cell_value = value.split('T')[0];
+                         }
+                 }
+                 if (column.type !== 'unselect'){
+                    control.val( cell_value )
+                        .addClass('changed')
+                        .closest('td').addClass('changed');
+                   }
 
-                this.cells[ key ].val( value );
-
-                this.cells[ key ].addClass('changed');
-                this.cells[ key ].closest('td').addClass('changed');
 
                 if (options.reset){
-                    this.cells[ key ].removeClass('changed');
-                    this.cells[ key ].closest('td').removeClass('changed');
+                    control.removeClass('changed')
+                        .closest('td').removeClass('changed');
                 }
             }
         },
@@ -382,11 +580,15 @@
         set: function(key, value, options){
 
             options = options || {};
-
+            
+            if ( options['changed'] !== false ){
+                options.changed = true;
+            }
+            
             //batch sets
             if (typeof key === 'object'){
                 for (var __key in key){
-                    this.set(__key, key[__key], value);
+                    this.set(__key, key[__key], value, options);
                 }
                 return this;
             }
@@ -398,9 +600,11 @@
             if (this.nestLevel(key) === 1){
                 this.data[key] = value;
                 this.changed[key] = value;
-
+                
                 this.eventChangeData(event, options.addEvent);
-                this.setCellVal(key, value, options);
+                //this.setCellVal(key, value, options);
+                this.setCellValueFromData(key, options);
+ 
                 return this;
             } 
 
@@ -416,9 +620,10 @@
 
             //set data
             eval(string + '=value');
-            this.setCellVal(key, value, options);
-
+            
             this.eventChangeData(event, options.addEvent);
+            //this.setCellVal(key, value, options);
+            this.setCellValueFromData(key, options);
             
             return this;
 
@@ -440,7 +645,7 @@
                 return false;
             }
 
-            currKey = this.data[ keys[0] ];
+            var currKey = this.data[ keys[0] ];
 
             for (var i=1; i < keys.length; i++){
                 let nextKey = keys[i];
@@ -536,21 +741,6 @@
     };
     
     Column.prototype = {       
-        renderLabelCell:  function(){
-            this.labelCell = $('<th>')
-                .text(this.label)
-                .css({
-                    'min-width': this.width,
-                    'max-width': this.width,
-                    'width': this.width,
-                    display: this.visible ? 'table-cell' : 'none',
-                });
-            return this.labelCell;
-        },
-
-        renderFilterCell: function(){
-
-        },
 
         hide: function(){
             this.setVisible(false);
@@ -618,7 +808,8 @@
             addTemplate: {},
             autoFetch: true,
             autoFirst: true,
-            cols: [],
+            buttons: [],
+            columns: [],
             canCreate: true,
             canDelete: true,
             canEdit: true,
@@ -637,6 +828,7 @@
             showHeadingBar: true,
             showBottomBar: true,
             showNavi: true,
+            unselectMode: false,
         },
         columnDefaults: {
             editable: false,
@@ -649,6 +841,12 @@
                 width: 200,
                 align: 'left',
                 control: 'text'
+            },
+            date: {
+                width: 150,
+                align: 'center',
+                control: 'date',
+                readonlyControl: 'text'
             },
             unselect: {
                 width: 200,
@@ -720,6 +918,11 @@
          */
         add: function(options){
             
+            if (this.readonly === true || this.canCreate === false){
+                console.warn('Add new row canceled');
+                return;
+            }
+            
             options = options || {};
             options.data = options.data || {};
             var addTemplate = JSON.parse( JSON.stringify( this.addTemplate ) );
@@ -729,7 +932,7 @@
             if ( $.isEmptyObject (options.data) )
                 console.warn('addTemplate is empty');
             
-            entity = new UnEntity(options.data, {
+            var entity = new UnEntity(options.data, {
                 new: true
             });
             
@@ -786,9 +989,17 @@
             this.element
                 .find('.untable-tbody-wrapper')
                 .scroll(function(e){
-                    $(this).closest('.untable')
+                    
+                    
+                    var __untable = $(this).closest('.untable').data('untable')
+                    
+                    __untable.element
                         .find('.untable-thead-wrapper, .untable-tfoot-wrapper')
                         .scrollLeft(this.scrollLeft);
+                       
+                    if ( ! __untable.unselectMode ){
+                        $.unselect.closeAll();
+                    }
                 });           
         },
         
@@ -801,24 +1012,68 @@
             this.tbody.empty();
         },
         
+        delete_current: function(){
+            
+            if (this.readonly === true || this.canDelete === false)
+            {
+                console.warn('Delete canseled')
+                return false;
+            }
+            
+            var entity = this.get_current();
+            
+            var toDelete = false;
+            
+            if (entity){
+                console.log('Delete current', entity);
+                
+                if (this.canDelete === true){
+                    toDelete = true;
+                }
+                
+                if (this.canDelete === false){
+                    return false;
+                }
+                
+                if (typeof this.canDelete === 'function'){
+                    toDelete = this.canDelete.call(entity);
+                }
+                
+                if (toDelete){
+                    
+                    entity.delete();
 
+                } else {
+                    console.warn('Delete cancelled');
+                }
+                
+            }
+        },
         
-        destroy: function(){
+        destroy: function(removeElement){
+            
+            console.log('untable.destroy', this, this.element);
+            
             this.element.removeData();
             this.element.empty();
             //this = null;
             
-            this.columns 
+            this.columns = null;
             
             for (attr in this){
                 this[ attr ] = null;
                 delete this[ attr ];
             }
             
-            this.element
-                .removeClass('untable')
-                .removeAttr('untable');
+            if (this.element)
+                this.element
+                    .removeClass('untable')
+                    .removeAttr('untable');
                
+            if (removeElement === true && this.element){
+                this.element.remove();
+            }
+            
             this.element = null;
             
             delete this;
@@ -841,7 +1096,9 @@
                 this.rest.data.page = page;
             } 
             
-            this.response = {};            
+            this.response = {
+                pagination: {}
+            };            
     
             $.ajax({
                 context: this,
@@ -849,7 +1106,14 @@
                 type: 'GET',
                 data: this.rest.data || {},
                 success: function(res){
-                    this.response = res;
+                    //this.response = res;
+                    
+                    if (res.pagination){
+                        this.response = this.response || {};
+                        this.response.pagination = JSON.parse(JSON.stringify(res.pagination));
+                    }
+                    
+                    console.log('response', this.response);
                     
                     this.load(res.data || []);
                     
@@ -869,6 +1133,79 @@
                 }
             });
         },
+        
+        /**
+         * apply
+         * @returns {undefined}
+         */
+        filter: function(e){
+            console.log(e.keyCode);
+            if (e){
+                
+                if (e.keyCode === 40 /*ARROW_DOWN*/){
+                    this.first(true);
+                }
+                
+                if ( controlKeys.indexOf(e.keyCode) > -1 ){
+                    return;
+                }
+            }
+            
+            var filters = [];
+            var having = [];
+            
+            var untable = this;
+            this.trFilter.find('input,select').each(function(){
+                var col = $(this).data('col');
+                
+                var column = untable.columns[col];
+                
+                var filterField = column.field;
+                var isHaving = false;
+                
+                if (typeof column.filter === 'object'){
+                    filterField = column.filter.field || filterField;
+                    isHaving = column.filter.having ? true : false;
+                }
+                
+                //console.log($(this).value);
+                
+                var canFilter = true;
+                
+                var val = $(this).val();
+                
+                var filteringOptions = {
+                    search: val,
+                    field: filterField
+                };
+                
+                switch (column.type){
+                    case 'number':
+                    case 'integer':
+                    case 'string':
+                        break;
+                    default:
+                        canFilter = false;
+                        break;
+                }
+                
+                if (canFilter){
+                    if (isHaving){
+                        having.push(filteringOptions)
+                    } else {
+                        filters.push(filteringOptions);
+                    }
+                }
+            });
+            
+            this.rest.data.filters = filters;
+            this.rest.data.having = having;
+            
+            this.fetch(1);
+            
+            console.log('filters', {where: filters, having: having});
+            //return filters;
+        },        
         
         first: function(focus){
             var cid = this.tbody.find('tr').first().data('cid');
@@ -892,7 +1229,7 @@
                     },
                     tbody: 0,
                     tfoot: this.showFooter ? 22 : 0,
-                    bottom: this.showBottomBar ? 22 : 0,
+                    bottom: this.showBottomBar ? 24 : 0,
                     user: this.height
             };
             
@@ -901,7 +1238,7 @@
                 height.thead.columns +
                 height.thead.filter +
                 height.tfoot +
-                height.bottom 
+                height.bottom + 5
              );
             
             this.element.find('.untable-tbody-wrapper').css({
@@ -923,7 +1260,11 @@
             
             $.extend(this, options);
             
+            options.cols = this.columns;
+            
+            delete this.columns;
             this.columns = [];
+            
             this.modified = false;
             this.created = false;
             this.tbodyWidth = null;
@@ -962,8 +1303,8 @@
         },
         
         /**
-         * Return entity by id
-         * @param {type} id
+         * Return entity by real id
+         * @param {ineger} id
          * @returns {undefined}
          */
         get: function(id){
@@ -1028,11 +1369,56 @@
                    
             this.tbody.append(entity.tr);
 
-            entity.tr.on('focus', function(){
-                $(this).data('entity').untable.set_current(
-                    $(this).data('cid')
-                 );
-            });
+            entity.tr
+                .on('focus', function(){
+                    $(this).data('entity').untable.set_current(
+                        $(this).data('cid')
+                     );
+                })
+                .on('dblclick', function(){
+                    var untable = $(this).closest('.untable').data('untable');
+
+                        untable.element.trigger('selected.untable', [
+                            $(this).data('entity')
+                        ])
+                })
+                .on('keyup', $.proxy(function(e){
+                    switch (e.keyCode) {
+                      case 27 /*ESCAPE*/:
+                          if ( this.unselectMode ){
+                              $.unselect.closeAll();
+                          }
+                          break;
+                          
+                      case 33 /*PAGE UP*/:
+                          this.page_prev(true);
+                          break;
+                          
+                      case 34 /*PAGE DOWN*/:
+                          this.page_next(true);
+                          break;
+                          
+                      case 35 /*END*/:
+                          this.last(true);
+                          break;
+                          
+                      case 36 /*HOME*/:
+                          this.first(true);
+                          break;
+                          
+                      case 38 /*ARROW UP*/:
+                          this.prev(true);
+                          break;
+                          
+                      case 40 /*ARROW DOWN*/:
+                          this.next(true);
+                          break;
+                          
+                      default:
+                          
+                          break;
+                  }
+                }, this))
 
             entity.render();
 
@@ -1048,14 +1434,23 @@
             return entity;
         },
         
+        is_modified: function(){
+            return this.entities.find(function(entity){
+                return entity.modified;
+            }) ? true : false;
+        },
+        
         /**
          * Load array to entity list
          * @param {type} data
          * @returns {undefined}
          */
-        load: function(data){
+        load: function(data, options){
             this.clear();
             this.current = null;
+            
+            options = options || {};
+            
             for (var i=0; i < data.length; i++){
                 //Add entity
                 var entity = new UnEntity(data[i], {
@@ -1067,7 +1462,14 @@
                 //add tr
                 
                 this.insert(entity);
-                
+            }
+            
+            if (this.defaultSelect){
+                var entity = this.get(this.defaultSelect);
+                if (entity) {
+                    this.set_current({cid: entity.cid})
+                }
+                this.defaultSelect = null;
             }
         },
         
@@ -1140,7 +1542,7 @@
                   
             }
                         
-            navi = {
+            var navi = {
                 currentPage,
                 totalPages,
                 left: false,
@@ -1315,6 +1717,27 @@
          
         },
         
+        page_prev: function(){
+            
+            if ( this.response && this.response.pagination ){
+                console.log('page prev!');
+                if (this.response.pagination.page > 1){
+                    
+                    this.fetch( this.response.pagination.page - 1, {focused: true, last: true} );
+                }
+            }
+        },
+        
+        page_next: function(){
+            if ( this.response && this.response.pagination ){
+                console.log('page next!');
+                if (this.response.pagination.page < this.response.pagination.totalPages){
+                    
+                    this.fetch( this.response.pagination.page + 1,  {focused: true, first: true}  );
+                }
+            }
+        },
+        
         prev: function(focus){
             
             var selected_row = this.tbody.find('tr.selected');
@@ -1343,6 +1766,14 @@
          * @returns {undefined}
          */
         save: function(options){
+            
+            var toSave = false;
+            
+            if (this.readonly){
+                console.warn('Save canceled [readonly]');
+                return false
+            };
+            
             options = options || {};
             
             var deffereds = this.get_modified().map(function(el){
@@ -1354,7 +1785,8 @@
             
             $.when(...deffereds)
              .done(function(){
-                 console.log('Saved rows: ' + deffereds.length);
+                
+                console.log('Saved rows: ' + deffereds.length);
              });
         },
 
@@ -1404,7 +1836,8 @@
                         width: col.width,
                        'min-width': col.width,
                        'max-width': col.width,
-                       'display': col.visible ? 'table-cell' : 'none'
+                       'display': col.visible ? 'table-cell' : 'none',
+                       'text-align': col.align
                     })
                     .text( col.label );
                 
@@ -1424,6 +1857,23 @@
                        'max-width': col.width,
                        'display': col.visible ? 'table-cell' : 'none'
                     });
+                
+                col.filterControl = null;
+                
+                if ( col.filter !== false )    {
+                    var filter_control = 
+                        $('<input>')
+                            .attr('data-col', i)
+                            .attr('type', 'text')
+                           
+                    filter_control
+                        .on('change keyup', $.proxy(this.filter, this));
+                           
+                    col.filterControl = filter_control;
+                    
+                    th_filter.append(filter_control);
+                }
+                    
                 this.trFilter.append( th_filter );
                 
                 var td_tfoot = $('<th>')
@@ -1453,21 +1903,26 @@
             if (typeof options === 'object'){
                 if ( 'id' in options ){
                     //set by id and return cid
+                    //var ent = this
                 }
                 
                 if ( 'cid' in options ){
                     //set by cid
                     cid = options.cid
                 }
-                
-                
             }
-            
-            
-            
+                        
             if (arguments.length === 0){
                 tr = $(this);
                 cid = $(this).data('cid');
+            }
+            
+            if (typeof tr !== 'object')
+                return;
+            
+            if (!tr && tr.length === 0){
+                
+                return;
             }
             
             var prevous_cid = tr.data('entity').untable.current;
@@ -1483,7 +1938,6 @@
                     entity.untable.current != cid){
                     
                     //change row detected
-                    console.log('Row has changed!!')
                     
                     //save prevous selected row if changed
                     entity.untable.element.trigger('current.untable', [entity]);
@@ -1520,10 +1974,15 @@
                 //update current button
                 var startRecord = 1;
             
-                if (untable.response && untable.response.pagination){                 
-                    startRecord = untable.response.pagination.start;
+                if (entity.untable.response && entity.untable.response.pagination){                 
+                    startRecord = entity.untable.response.pagination.start;
                 }
-                this.navGroup.find('.current-pos').text( cid + startRecord )
+                this.navGroup.find('.current-pos').text( cid + startRecord );
+                
+                //analyze on lookup
+                //if (tr.find('.unselect-opened').length === 0){
+                //    $.unselect.closeAll();
+                //}
             }
         },
         
@@ -1531,6 +1990,17 @@
             var heading = this.element.find('.untable-heading');
             
             heading.empty();
+            
+            if ( this.showHeadingBar === false ){
+                heading.css('display', 'none');
+                //return;
+            }
+            
+            if ( this.showBottomBar === false ){
+                this.bottomToolbar.css('display', 'none');
+                //return;
+            }
+            
             
             var toolbar1 = $('<div class="un-btn-toolbar">');
             
@@ -1576,10 +2046,19 @@
                         this.fetch(undefined, {focused: true});
                     }, this))
                         .html(fa('refresh')),
+                $('<button class="un-btn save">')
+                    .click($.proxy(function(){
+                        this.save();
+                    }, this))
+                        .css( 'display', 
+                            this.readonly === true || this.canDelete === true ? 'none' : 'block-inline' )
+                        .html(fa('save')),
                 $('<button class="un-btn">')
                     .click($.proxy(function(){
-                        confirm('?');
+                        this.delete_current();
                     }, this))
+                        .css( 'display', 
+                            this.readonly === true || this.canDelete === true ? 'none' : 'block-inline' )
                         .html(fa('trash')),
                 );
                 
@@ -1594,23 +2073,208 @@
     
     $.unselect = {
         defaults: {
-            indicator: true,
+            //indicator: true,
         }
     };
     
-    $.unselect.create = function(el, options){
-        
+    /**
+     * Close all opened lookup
+     * @returns {undefined}
+     */
+    $.unselect.closeAll = function(){
+        $('.unselect-lookup').each(function(){
+                $(this).data('unselect').cancel();
+            });        
     }
+    $.unselect.create = function(el, options){
+
+                
+        var __unselect = new $.unselect.core( ++untable_instance_counter );
+        
+        options = $.extend(true, {}, $.unselect.defaults, options);
+        $(el).data('unselect', __unselect);
+        
+        __unselect.init(el, options);
+        
+        return __unselect;
+    };
     
     $.unselect.core = function(id){
-        
-    }
+
+    };
     
     $.unselect.core.prototype = {
+        
+        cancel: function(){
+               
+            if (!this.untableElement)
+                return;
+            
+            
+            var untable = this.untableElement.data('untable');
+            
+            if (!untable)
+                return;
+            
+            this.element.removeClass('unselect-opened');
+            
+            this.untableElement.remove();
+            untable.destroy(true);
+            
+            this.untableElement.data('untable', null);
+            
+            if (this.untableSource)
+                this.untableSource.unselectOpened = null;
+        },
+        
         init: function(el, options){
             
+            this.element = $(el);
+            
+            this.element
+                .attr('autocomplete', 'off')	
+                .attr('role', 'unselect-display')
+                .data('unselect', this);
+            
+            this.elementHidden =                 
+                $('<input type="hidden" class="unselect-hidden">')               
+                    .attr('role', 'unselect-value')
+                    .attr('name', this.element.attr('name') )
+                    .val( this.element.val() )
+                    .data('unselect', this);
+                   
+            this.element.removeAttr('name')
+                   
+            this.element
+                .attr('type', 'text')
+                //.attr('readonly', true)
+                .val( options.text );
+               
+            this.text = options.text;
+               
+            this.element.after( this.elementHidden );
+            
+            this.elementEvents();
+            
+            this.untableOptions = options.untable;
+            this.untableSource = options.untableSource;
+            
+            this.lookupIdKey = options.lookupIdKey || 'id';
+            this.lookupDisplayKey = options.lookupDisplayKey || 'name';
+                   
+        },
+        
+        elementEvents: function(){
+            this
+                .element
+                .off('dblclick keyup')
+                .on('dblclick', $.proxy( this.open, this ))                
+                .on('keyup', function(e){
+                    var __unselect = $(this).data('unselect');
+                    e.stopPropagation();
+                    switch (e.keyCode){
+                        case 27: //ESC
+                            __unselect.cancel();
+                            break;
+                        case 13: //ENTER
+                        case 40: //ARROW_DOWN
+                            __unselect.open(e);
+                            break;
+                    }
+                    this.value = __unselect.text ? __unselect.text : null;
+                    return false;
+                })
+                
+        },
+        
+        open: function(e){
+            
+            //Stop event to parent
+            e.stopPropagation();
+            
+            //Close other opened lookup untables
+            $('.unselect-lookup').each(function(){
+                $(this).data('unselect').cancel();
+            });
+            
+            this.untableElement = $('<div>')
+                .addClass('untable unselect-lookup')
+                .data('unselect', this)
+            
+            $('body').append(
+              this.untableElement
+            );
+            
+            css = {
+                position: 'absolute',
+                top     : //$(this).position().top
+                         0  + this.element.offset().top
+                              + this.element.outerHeight(),
+                height: 300,             
+                left    : this.element.offset().left,
+                width   : this.untableOptions.width || this.element.outerWidth(),
+                'background-color': 'white',
+            };
+            
+            this.untableElement
+                .css(css);
+               
+            this.untableOptions.showHeadingBar = false;
+            this.untableOptions.showBottomBar = false;
+            this.untableOptions.showNavi = false;
+            this.untableOptions.unselectMode = true;
+            this.untableOptions.parentUnselect = this;
+            
+            
+            this.untableElement.untable(this.untableOptions);
+            $(this.untableElement)
+                .on('selected.untable', function(e, entity){
+                    
+                    var __unselect = entity.untable.parentUnselect;
+                    
+                    var val  = entity.get( __unselect.lookupIdKey );
+                    var text = entity.get( __unselect.lookupDisplayKey );
+                    
+                    __unselect.set( val, text );
+                    
+                    $.unselect.closeAll();
+                });
+            
+            this.element
+                .addClass('unselect-opened')
+                
+            
+            if (this.untableSource)
+                this.untableSource.untable.unselectOpened = this;
+            
+        },
+        
+        set: function(value, text, options){
+            
+            options = options || {};
+            
+            this.element.val(text);
+            this.element.data('value', value);
+            this.elementHidden.val(value); 
+            
+            this.text = text;
+            
+            if (options.dontSync !== true && this.untableSource){
+                //console.log(this.untableOptions);
+                
+                //set display text
+                this.untableSource.entity.set( 
+                    this.untableSource.column.unselect.field,
+                    text);
+                    
+                //set val
+                this.untableSource.entity.set( 
+                    this.untableSource.column.field,
+                    value);
+                //this.untableOptions
+            }
         }
-    };
+    }; //unselect.core.prototype
     
     /********jQuery initialize class*******/
     

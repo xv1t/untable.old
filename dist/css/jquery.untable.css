@@ -151,11 +151,20 @@
 
 
 .untable input[type="text"],
+.untable input[type="date"],
 .untable input[type="number"]{
     border: none;
     width: 100%;
     padding: 0;
     background-color: transparent;
+}
+
+.untable input.control-align-center{
+    text-align: center;
+}
+
+.untable input.disabled-control{
+    color: #333333;
 }
 
 
