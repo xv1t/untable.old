@@ -156,6 +156,8 @@
     border: none;
     width: 100%;
     padding: 0;
+    padding-left: 3px;
+    padding-right: 3px;
     background-color: transparent;
 }
 
@@ -167,7 +169,11 @@
     color: #333333;
 }
 
-
+.untable input.disabled-control[type=number]::-webkit-outer-spin-button,
+.untable input.disabled-control[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
 
 .untable input[type="number"]{
     text-align: right;
@@ -296,4 +302,37 @@ th.thead-indicator.clickable{
 
 .un-btn-toolbar .un-btn-group{
     display: inline-block;
+}
+
+.untable .un-btn-toolbar.bottom-toolbar{
+    padding-top: 4px;
+}
+
+button.unselect-btn{
+    background: transparent;
+    border: none;
+    height: 16px;
+    line-height: -5px;
+}
+
+i.unselect-btn-triangle{
+    color: grey;
+}
+
+td.cell-btn input,
+td.cell-btn .un-btn-group{
+    display: inline-block;
+}
+
+td.cell-btn input{
+    width: auto;
+    float: left;
+}
+
+td.cell-btn {
+    white-space: nowrap !important;
+}
+
+td.cell-btn .un-btn-group{
+    float: right  !important;   
 }

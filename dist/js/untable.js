@@ -149,11 +149,72 @@
                     .attr('type', control_type)
                     .attr('data-col', i)
                     .attr('name', column.field)
-                    .addClass( !editable ? 'disabled-control' : undefined )
+                    .addClass( editable ? 'editable-control' : 'disabled-control'  )
                     .addClass('control-align-' + column.align);
                    
                 td.append(control);
                 this.cells[ column.field ] = control;
+                
+                if ( column.buttons ){
+                    td.addClass('cell-btn');
+                    var cellBtnGroup = $('<div class="un-btn-group cell-btn-group">');
+                    td.append(cellBtnGroup);
+                    for (var j = 0; j < column.buttons.length; j++){
+                        
+                    
+                        var btnOptions = column.buttons[j];
+                        
+                        if (btnOptions.visible === false)
+                            continue;
+                        
+                        var button = $('<button class="un-btn cell-btn">');
+                        var html = '';
+                        if ( btnOptions.icon ) {
+                            html = fa( btnOptions.icon );
+                            if ( btnOptions.label ){
+                                html += ' ' + btnOptions.label;
+                            }
+                        } else {
+                             html += ' ' + btnOptions.label;
+                        }
+                        
+                        button.attr('title', btnOptions.title);
+                        
+                        button.html(html);
+                        
+                        button.addClass(btnOptions.class);
+                        
+                        if (typeof btnOptions.click === 'function'){
+                            button.click( $.proxy(btnOptions.click, this) );
+                        }
+                        
+                        if ( btnOptions.on ){
+                            for (var btnEvent in btnOptions.on ){
+                                button.on( btnEvent, $.proxy(btnOptions.click, this) );
+                            }                            
+                        }
+                        
+                        cellBtnGroup.append(button); 
+                        
+                        button
+                            .on('focus', function(){
+                            var cid = $(this).closest('tr').data('cid');
+
+                            var entity =$(this).closest('tr').data('entity');
+
+                            entity.untable.set_current(cid);
+
+                            if (entity.untable.unselectMode){
+                                return;
+                            }
+
+                            if ( ! $(this).hasClass('unselect-opened') ){
+                                $.unselect.closeAll();
+                            }
+                        }); 
+                    }//for    
+                    control.width( column.width - cellBtnGroup.width() - 15 );
+                } //if
                 
                 if ( !editable ){
                     //disable all mouse, keyboard events but couldnot lose focus!
@@ -388,7 +449,15 @@
          * delete rwcord
          * @returns {undefined}
          */
-        delete: function(){                    
+        delete: function(){
+            
+            if (this.new){
+                this.tr.remove();
+                this.untable[ this.cid ] = null;
+                delete this.untable[ this.cid ];
+                return;
+            }
+            
             $.ajax({
                 url: this.untable.rest.url + '/' + this.id,
                 type: 'DELETE',
@@ -666,8 +735,8 @@
             }
 
             return true;      
-        },
-
+        },        
+     
         eventChangeData: function(event, addEvent){
             if (addEvent === false)    {
                 return;
@@ -682,6 +751,23 @@
             this.history.push(event);
             $(this).trigger('update', [event]);
         },
+        
+        format: function(key, val){
+            
+            var column = this.untable.columns.find(function(__column){
+                return __column.field === key
+            });
+            
+            if (!column)            
+                return val;
+            
+            if (column.type === 'money'){
+                //format value
+                return  parseFloat(val).toFixed(2);
+            }
+            
+             return val;
+        },
 
         /**
          * 
@@ -693,7 +779,7 @@
             if ( this.nestLevel(key) === 1){
 
                 if ( key in this.data ){
-                    return this.data[key];
+                    return this.format(key, this.data[key] );
                 } 
 
                 return;
@@ -721,7 +807,7 @@
                 }
             }
 
-            return currKey;    
+            return this.format(key, currKey);    
         }
     };
     // EnEntity end
@@ -770,6 +856,7 @@
                     display: visible ? 'table-cell' : 'none'
                 });                
 
+             this._untable.fakerow();   
              this.visible = visible;
         },
 
@@ -794,6 +881,8 @@
                    'min-width': width,
                    'max-width': width
                 });
+                
+            this._untable.fakerow();
 
             this.width = width;
         }
@@ -811,7 +900,7 @@
             buttons: [],
             columns: [],
             canCreate: true,
-            canDelete: true,
+            canDelete: function(){return confirm('Delete?')},
             canEdit: true,
             displayKey: 'name',
             height: 300,
@@ -863,6 +952,11 @@
                 align: 'right',
                 control: 'number'
             },
+            money: {
+                width: 150,
+                align: 'right',
+                control: 'number',
+            },
             integer: {
                 width: 150,
                 align: 'right',
@@ -872,12 +966,6 @@
                 width: 150,
                 align: 'right',
                 control: 'number'
-            },
-            money: {
-                width: 150,
-                align: 'right',
-                control: 'number',
-                /* set 0.01 */
             },
         }
     };
@@ -950,6 +1038,7 @@
         at: function(cid){
             return this.entities[cid];
         },
+        
         carcass: function(){
             this.element
                 .empty()
@@ -1009,7 +1098,9 @@
          */
         clear: function(){
             this.entities = [];
-            this.tbody.empty();
+            if (this.tbody){
+                this.tbody.empty();
+            }
         },
         
         delete_current: function(){
@@ -1079,6 +1170,26 @@
             delete this;
         },
         
+        /**
+         * Recalc width 
+         * @returns {undefined}
+         */
+        fakerow: function(){
+            
+            var fakeWidth = this.columns.reduce(function(val, col, index, four){
+                return val + (col.visible ? col.width : 0);
+            }, 0);
+            
+            if (this.indicator) 
+                fakeWidth += 20;            
+            
+            this.element.find('.fakerow')
+                .width( fakeWidth )
+                .height(1);
+            
+            return fakeWidth;
+        },
+        
         fetch: function(page, options){
             
             options = options || {};
@@ -1108,14 +1219,21 @@
                 success: function(res){
                     //this.response = res;
                     
-                    if (res.pagination){
-                        this.response = this.response || {};
+                    this.response = this.response || {};
+                    
+                    this.response.pagination = {};
+                    if (res.pagination){                        
                         this.response.pagination = JSON.parse(JSON.stringify(res.pagination));
                     }
-                    
-                    console.log('response', this.response);
-                    
+                                        
                     this.load(res.data || []);
+                    
+                    
+                    this.response.tfoot = {};
+                    if (res.tfoot){                        
+                        this.response.tfoot = JSON.parse(JSON.stringify(res.tfoot));
+                        this.tfoot();
+                    }
                     
                     this.element.trigger(
                         'fetch.untable', 
@@ -1123,6 +1241,11 @@
                     );
                    
                    this.nav();
+                   
+                   if ( options.last === true ){
+                       this.last( true );
+                       return;
+                   }
                    
                    if (this.autoFirst === true){
                        this.first( options.focused );
@@ -1139,8 +1262,14 @@
          * @returns {undefined}
          */
         filter: function(e){
-            console.log(e.keyCode);
+            //console.log(e.keyCode);
             if (e){
+                
+                if (e.keyCode === 27 /*ESC*/){
+                    if ( this.unselectMode === true ){
+                        return this.parentUnselect.cancel();
+                    }
+                }
                 
                 if (e.keyCode === 40 /*ARROW_DOWN*/){
                     this.first(true);
@@ -1182,7 +1311,10 @@
                 switch (column.type){
                     case 'number':
                     case 'integer':
+                    case 'money':
+                    case 'float':
                     case 'string':
+                    case 'unselect':
                         break;
                     default:
                         canFilter = false;
@@ -1257,6 +1389,8 @@
         init: function(el, options){
             
             this.element = $(el).addClass('untable').attr('untable', this._id);
+            
+            this.element.attr('data-uid', this.id);
             
             $.extend(this, options);
             
@@ -1352,6 +1486,33 @@
             });
         },
         
+        
+        /**
+         * Return true if current on the begin
+         * @returns {undefined}
+         */
+        in_first: function(){
+            var current = this.get_current();
+            
+            if (!current)
+                return;
+            
+            return current.tr.is(':first-child');
+        },           
+        
+        /**
+         * Return true if current on the begin
+         * @returns {undefined}
+         */
+        in_last: function(){
+            var current = this.get_current();
+            
+            if (!current)
+                return;
+            
+            return current.tr.is(':last-child');
+        },         
+        
         /**
          * Insert row into table
          * @param {UnEntity} entity
@@ -1375,19 +1536,39 @@
                         $(this).data('cid')
                      );
                 })
-                .on('dblclick', function(){
+                .on('dblclick', function(e){
                     var untable = $(this).closest('.untable').data('untable');
 
+                        
+                        
+                        untable.element.trigger('dblclick.untable', [
+                            $(this).data('entity')
+                        ]);
+                        
                         untable.element.trigger('selected.untable', [
                             $(this).data('entity')
-                        ])
+                        ]);
+                        
+                        e.stopPropagation();
                 })
                 .on('keyup', $.proxy(function(e){
                     switch (e.keyCode) {
+                        case 13:
+                            //go to first editable control
+                            if ( this.unselectMode ){
+                                this.element.trigger('selected.untable', [
+                                    this.get_current()
+                                ])
+                            }
+                            
+                            $(e.currentTarget).find('input.editable-control:first').focus();
+                            break;
+                        
                       case 27 /*ESCAPE*/:
                           if ( this.unselectMode ){
-                              $.unselect.closeAll();
+                              return $.unselect.closeAll();
                           }
+                          
                           break;
                           
                       case 33 /*PAGE UP*/:
@@ -1407,6 +1588,13 @@
                           break;
                           
                       case 38 /*ARROW UP*/:
+                          
+                          if (this.unselectMode === true){
+                              if (this.in_first()){
+                                  
+                              }
+                          }
+                          
                           this.prev(true);
                           break;
                           
@@ -1433,7 +1621,7 @@
             
             return entity;
         },
-        
+
         is_modified: function(){
             return this.entities.find(function(entity){
                 return entity.modified;
@@ -1471,6 +1659,10 @@
                 }
                 this.defaultSelect = null;
             }
+            
+            if (this.focusFirstFilter === true){
+                this.trFilter.find('input,select').first().focus();
+            }
         },
         
         last: function(focus){
@@ -1488,6 +1680,10 @@
                         
             if (selected_row.length === 0){                
                 return this.first();
+            }            
+                        
+            if ( this.in_last() ){
+                return this.page_next();
             }
             
             var next_row = this.tbody.find('tr.selected').next();
@@ -1748,6 +1944,10 @@
             
             var next_row = this.tbody.find('tr.selected').prev();
             
+            if ( this.in_first() ){
+                this.page_prev();
+            }
+            
             if (next_row.length === 0){
                 return;
             }
@@ -1799,6 +1999,7 @@
             //Columns
             
             this.trColumns.empty();
+            this.fakerow();
             
             var colgroup_thead = this.element.find('colgroup.thead');
             var colgroup_tbody = this.element.find('colgroup.tbody');
@@ -1864,6 +2065,7 @@
                     var filter_control = 
                         $('<input>')
                             .attr('data-col', i)
+                            .css('text-align', col.align)
                             .attr('type', 'text')
                            
                     filter_control
@@ -1882,7 +2084,8 @@
                         width: col.width,
                        'min-width': col.width,
                        'max-width': col.width,
-                       'display': col.visible ? 'table-cell' : 'none'
+                       'display': col.visible ? 'table-cell' : 'none',                       
+                       'text-align': col.align
                     });
                 this.trFoot.append( td_tfoot );
             }
@@ -2005,41 +2208,15 @@
             var toolbar1 = $('<div class="un-btn-toolbar">');
             
             //main navi group
-            var nav_group = $('<div class="un-btn-group">');
-            var manage_group = $('<div class="un-btn-group">');
             
-            toolbar1.append(nav_group);
+            var manage_group = $('<div class="un-btn-group manage-group">');            
+            var custom_group = $('<div class="un-btn-group custom-group">');            
+            
             toolbar1.append(manage_group);
+            toolbar1.append(custom_group);
             
             heading.append( toolbar1 );
             
-            /*
-             * 
-            nav_group.append(
-                $('<button class="un-btn">')
-                    .click($.proxy(function(){
-                        this.first(true);
-                    }, this))
-                    .html( fa('step-backward') ),
-                $('<button class="un-btn">')
-                    .click($.proxy(function(){
-                        this.prev(true);
-                    }, this))
-                    .html( fa('backward') ),
-               );
-               
-            nav_group.append(
-                $('<button class="un-btn">')
-                    .click($.proxy(function(){
-                        this.next(true);
-                    }, this))
-                    .html(  fa('forward')  ),
-                $('<button class="un-btn">')
-                    .click($.proxy(function(){
-                        this.last(true);
-                    }, this))
-                    .html( fa('step-forward') ),
-                ); */
             manage_group.append(
                 $('<button class="un-btn refresh">')
                     .click($.proxy(function(){
@@ -2051,21 +2228,80 @@
                         this.save();
                     }, this))
                         .css( 'display', 
-                            this.readonly === true || this.canDelete === true ? 'none' : 'block-inline' )
+                            this.readonly === true || this.canDelete === false ? 'none' : 'block-inline' )
                         .html(fa('save')),
                 $('<button class="un-btn">')
                     .click($.proxy(function(){
                         this.delete_current();
                     }, this))
                         .css( 'display', 
-                            this.readonly === true || this.canDelete === true ? 'none' : 'block-inline' )
+                            this.readonly === true || this.canDelete === false ? 'none' : 'block-inline' )
                         .html(fa('trash')),
                 );
+            //custom buttons
+            if ( this.buttons.length > 0){
+                for (var i = 0; i < this.buttons.length; i++){
+                    var btn = $('<button class="un-btn">');
+                    
+                    var btnHtml = '';
+                    if ( this.buttons[i].icon ){
+                        btnHtml = fa(this.buttons[i].icon);
+                    }
+                    
+                    if ( this.buttons[i].label ){
+                        btnHtml += ' ' + this.buttons[i].label;
+                    }
+                    
+                    if ( this.buttons[i].title ){
+                        btn.attr('title', this.buttons[i].title);
+                    }
+                    
+                    if ( this.buttons[i].class ){
+                        btn.addClass(this.buttons[i].class);
+                    }
+                    
+                    btn.html(btnHtml);
+                    
+                    if ('click' in this.buttons[i] && typeof this.buttons[i].click === 'function'){
+                        btn.on('click', $.proxy(this.buttons[i].click, this));
+                    }
+                    
+                    for (var on in this.buttons[i].on ){
+                        if ( typeof this.buttons[i].on[ on ] === 'function' ){
+                            btn.on(
+                                on, 
+                                $.proxy(this.buttons[i].on[ on ], this)
+                                );
+                        }
+                    }
+                    
+                    custom_group.append(btn);
+                }
+            }
                 
         },
         
         test: function(){
             console.log('test', this, arguments);
+        },
+        
+        tfoot: function(){
+            var untable = this;
+            this.trFoot.find('th').each(function(){
+                
+                if ( $(this).hasClass('thead-indicator') )
+                    return;
+                
+                //clear tfoot cell
+                $(this).html('&nbsp;');
+                
+                if ( untable.response && typeof untable.response.tfoot === 'object' ){
+                    var column = untable.columns[ $(this).data('col') ];
+                    if ( column.field in untable.response.tfoot ){
+                        $(this).html( untable.response.tfoot[ column.field ] );
+                    }
+                }
+            });
         }
     };
     
@@ -2100,7 +2336,7 @@
     };
     
     $.unselect.core = function(id){
-
+        this.id = id;
     };
     
     $.unselect.core.prototype = {
@@ -2125,6 +2361,8 @@
             
             if (this.untableSource)
                 this.untableSource.unselectOpened = null;
+            
+            this.opened = false;
         },
         
         init: function(el, options){
@@ -2134,6 +2372,7 @@
             this.element
                 .attr('autocomplete', 'off')	
                 .attr('role', 'unselect-display')
+                .attr('data-uid', this.id)
                 .data('unselect', this);
             
             this.elementHidden =                 
@@ -2145,12 +2384,14 @@
                    
             this.element.removeAttr('name')
                    
+            this.text = options.text || this.element.data('text');       
+                   
             this.element
                 .attr('type', 'text')
                 //.attr('readonly', true)
-                .val( options.text );
+                .val( this.text );
                
-            this.text = options.text;
+            
                
             this.element.after( this.elementHidden );
             
@@ -2161,6 +2402,10 @@
             
             this.lookupIdKey = options.lookupIdKey || 'id';
             this.lookupDisplayKey = options.lookupDisplayKey || 'name';
+            
+            this.selectBtnElement = null;
+            
+            this.opened = false;
                    
         },
         
@@ -2168,8 +2413,19 @@
             this
                 .element
                 .off('dblclick keyup')
+                .on('focus mouseenter', $.proxy( this.selectBtn, this ))
+                .on('mouseleave', $.proxy( function(e){
+                   if ($(e.relatedTarget).hasClass('fa')){
+                       return;
+                   }
+                    if (this.selectBtnElement)
+                       this.selectBtnElement.remove();
+                }, this ))
                 .on('dblclick', $.proxy( this.open, this ))                
-                .on('keyup', function(e){
+                .on('paste cut', function(){
+                    return false;
+                })
+                .on('keyup keypress keydown', function(e){
                     var __unselect = $(this).data('unselect');
                     e.stopPropagation();
                     switch (e.keyCode){
@@ -2180,14 +2436,22 @@
                         case 40: //ARROW_DOWN
                             __unselect.open(e);
                             break;
+                        default:
+                           // return false;
+                            break;
+                    };
+                    if ( controlKeys.indexOf(e.keyCode) >= 0 ){
+                        return;
                     }
-                    this.value = __unselect.text ? __unselect.text : null;
                     return false;
+                    
                 })
-                
         },
         
         open: function(e){
+            
+            if (this.opened)
+                return this.cancel();
             
             //Stop event to parent
             e.stopPropagation();
@@ -2195,6 +2459,7 @@
             //Close other opened lookup untables
             $('.unselect-lookup').each(function(){
                 $(this).data('unselect').cancel();
+                $(this).remove();
             });
             
             this.untableElement = $('<div>')
@@ -2205,14 +2470,17 @@
               this.untableElement
             );
             
+            var width = this.element.outerWidth();
+            if ( this.untableOptions && this.untableOptions.width ){
+                width = this.untableOptions.width;
+            }
+            
             css = {
                 position: 'absolute',
-                top     : //$(this).position().top
-                         0  + this.element.offset().top
-                              + this.element.outerHeight(),
-                height: 300,             
+                top     : this.element.offset().top + this.element.outerHeight(),
+                height  : 300,             
                 left    : this.element.offset().left,
-                width   : this.untableOptions.width || this.element.outerWidth(),
+                width   : width,
                 'background-color': 'white',
             };
             
@@ -2224,6 +2492,7 @@
             this.untableOptions.showNavi = false;
             this.untableOptions.unselectMode = true;
             this.untableOptions.parentUnselect = this;
+            this.untableOptions.focusFirstFilter = true;
             
             
             this.untableElement.untable(this.untableOptions);
@@ -2235,18 +2504,48 @@
                     var val  = entity.get( __unselect.lookupIdKey );
                     var text = entity.get( __unselect.lookupDisplayKey );
                     
-                    __unselect.set( val, text );
+                    console.log(__unselect.element);
+                    
+                    __unselect
+                        .set( val, text )
+                        .element.focus();
                     
                     $.unselect.closeAll();
                 });
             
             this.element
-                .addClass('unselect-opened')
+                .addClass('unselect-opened');
+               
+            this.opened = true;   
                 
             
             if (this.untableSource)
                 this.untableSource.untable.unselectOpened = this;
             
+        },
+        
+        selectBtn: function(){
+
+            
+            if ( this.selectBtnElement !== null){
+                this.selectBtnElement.remove();
+            }
+            
+            $('.unselect-btn-triangle').remove();
+            
+            var btnHeight = 16;
+            var elementHeight = this.element.outerHeight();
+            
+            this.selectBtnElement = $('<i>')
+                .css({
+                    position: 'absolute',
+                    top: this.element.offset().top + elementHeight/2 - btnHeight/2,
+                    left: this.element.offset().left + this.element.outerWidth() - elementHeight/2 - btnHeight/2,
+                })
+                 .addClass('fa fa-caret-square-o-down unselect-btn-triangle')
+                .on('click', $.proxy( this.open, this ))
+            
+            $('body').append( this.selectBtnElement );
         },
         
         set: function(value, text, options){
@@ -2273,6 +2572,7 @@
                     value);
                 //this.untableOptions
             }
+            return this;
         }
     }; //unselect.core.prototype
     
