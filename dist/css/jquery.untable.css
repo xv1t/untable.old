@@ -336,3 +336,7 @@ td.cell-btn {
 td.cell-btn .un-btn-group{
     float: right  !important;   
 }
+
+input.control-align-right{
+    text-align: right;
+}
