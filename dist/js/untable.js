@@ -308,8 +308,38 @@
                 control.parent().addClass('changed');
             }
             
+            //Placeholder
+            control.removeAttr('placeholder');
+            
+            if (column.placeholder !== null && typeof column.placeholder === 'object'){
+               
+                //control.attr('placeholder', this.get(column.placeholderField));
+                if ( column.placeholder.text ){
+                    control.attr('placeholder', column.placeholder.text);
+                }
+                
+                if ( typeof column.placeholder.field === 'string' ){
+                    control.attr('placeholder', this.get(column.placeholder.field));
+                }
+                
+                if ( $.isArray( column.placeholder.field) ){
+                    for (let field of column.placeholder.field){
+                        var placeholderValue = this.get(field);
+                        if (placeholderValue) {
+                            control.attr('placeholder', placeholderValue);
+                             break;
+                        }
+                    }
+                }
+            }
             
             cell_value = this.get(field);
+            
+            if (typeof column.calculated === 'object'){
+                if (typeof column.calculated.getValue === 'function'){
+                    cell_value = column.calculated.getValue.call(this);
+                }
+            }
             
             switch (column.type) {
                 case 'boolean':
@@ -375,6 +405,10 @@
             
             this.makeRow();
             this.setRowValues();
+            
+            if (typeof this.untable.onRow === 'function'){
+                this.untable.onRow.call(this, this.tr)
+            }
         },
 
         /**
@@ -397,7 +431,16 @@
             
             entity.set(this.name, value);
 
-            //entity.set( $(this )
+            //Check if calculated, or autoUpdate needes
+            for (var column of entity.untable.columns){
+                if (column.calculated 
+                    && column.calculated.on 
+                    && column.calculated.on.length > 0 
+                    && column.calculated.on.indexOf(this.name) > -1
+                    ){
+                    entity.setCellValueFromData(column.field);
+                }
+            }
         },
 
         /**
@@ -906,6 +949,7 @@
             height: 300,
             idKey: 'id',
             indicator: true,
+            onRow: null,
             readonly: false,
             rest: {
                 url: null,
@@ -923,7 +967,9 @@
             editable: false,
             type: 'string',
             visible: true,     
-            filter: true
+            filter: true,
+            placeholder: null,
+            calculated: false,
         },
         columnsTypes: {
             string: {
@@ -1235,10 +1281,14 @@
                         this.tfoot();
                     }
                     
-                    this.element.trigger(
-                        'fetch.untable', 
-                        [this, res]
-                    );
+                    if (this.element){                    
+                        this.element.trigger(
+                            'fetch.untable', 
+                            [this, res]
+                        ) 
+                    } else {
+                        console.log( 'this.element has not exists', this )
+                    }
                    
                    this.nav();
                    
@@ -1519,6 +1569,11 @@
          * @returns {UnEntity}
          */
         insert: function (entity){
+            
+            if (!this.tbody){
+                return console.log('Cannot read "tbody" object on this', this)
+            }
+            
             entity.cid = this.entities.length;
             entity.untable = this;
             entity.idKey = this.idKey;
@@ -1527,7 +1582,7 @@
                     .attr('data-cid', entity.cid)
                     .attr('tabindex', 2)
                     .data('entity', entity);
-                   
+            
             this.tbody.append(entity.tr);
 
             entity.tr
@@ -2228,7 +2283,7 @@
                         this.save();
                     }, this))
                         .css( 'display', 
-                            this.readonly === true || this.canDelete === false ? 'none' : 'block-inline' )
+                            this.readonly === true || this.canEdit === false ? 'none' : 'block-inline' )
                         .html(fa('save')),
                 $('<button class="un-btn">')
                     .click($.proxy(function(){
@@ -2287,6 +2342,11 @@
         
         tfoot: function(){
             var untable = this;
+            
+            if (!this.trFoot){
+                return console.log('Property trFoot is not exists');
+            }
+            
             this.trFoot.find('th').each(function(){
                 
                 if ( $(this).hasClass('thead-indicator') )
