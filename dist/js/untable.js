@@ -828,7 +828,6 @@
                 && column.step < 1
                 ){
                 var fixedLength = column.step.toString().split('.')[1].length;
-                console.log(fixedLength);
                 return  parseFloat(val).toFixed(fixedLength);
             }
             
@@ -982,6 +981,7 @@
                 url: null,
                 data: {}
             },
+            autoSelectId: null,
             showColumns: true,
             showFilter: true,
             showFooter: true,
@@ -1326,6 +1326,10 @@
                    
                    if (this.autoFirst === true){
                        this.first( options.focused );
+                   }
+
+                   if (typeof this.autoSelectId === 'number'){
+                       this.set_current({id: this.autoSelectId});
                    }
                 },
                 error: function(){
@@ -2065,9 +2069,14 @@
             if (deffereds.length === 0)
                 return console.warn('Nothing to save!');
             
+            var self = this;
+
             $.when(...deffereds)
              .done(function(){
                 
+                if (options.fetch === true){
+                    self.fetch();
+                }
                 console.log('Saved rows: ' + deffereds.length);
              });
         },
@@ -2086,6 +2095,12 @@
             var colgroup_thead = this.element.find('colgroup.thead');
             var colgroup_tbody = this.element.find('colgroup.tbody');
             var colgroup_tfoot = this.element.find('colgroup.tfoot');
+
+            this.trFilter.css(
+                'display', 
+                this.showFilter === false
+                    ? 'none'
+                    : 'table-row')
             
             if (this.indicator === true){
                 this.trColumns.append(
@@ -2188,7 +2203,18 @@
             if (typeof options === 'object'){
                 if ( 'id' in options ){
                     //set by id and return cid
-                    //var ent = this
+                    ent = this.entities.find(function(entity){
+                        if (entity.id === options.id){
+                            return true;
+                        }
+                    });
+
+                    if (ent){
+                        cid = ent.cid;
+                        tr = ent.tr;
+                    } else {
+                        return console.warn(`Row with id ${options.id} not found!`);
+                    }
                 }
                 
                 if ( 'cid' in options ){
