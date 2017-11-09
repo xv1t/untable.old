@@ -152,6 +152,20 @@
                     .addClass( editable ? 'editable-control' : 'disabled-control'  )
                     .addClass('control-align-' + column.align);
                    
+                if ( control_type === 'number' ){
+                    if ('step' in column){
+                        control.attr('step', column.step);
+                    }
+                    
+                    if ('min' in column){
+                        control.attr('step', column.min);
+                    }
+                    
+                    if ('max' in column){
+                        control.attr('step', column.max);
+                    }
+                }
+                   
                 td.append(control);
                 this.cells[ column.field ] = control;
                 
@@ -286,7 +300,7 @@
             
             options = options || {};
             
-            
+                        
             var control = this.cells[ field ];
             var editable = false;
 
@@ -331,6 +345,10 @@
                         }
                     }
                 }
+            }
+
+            if (options.source === 'controlOnChange'){
+                return;
             }
             
             cell_value = this.get(field);
@@ -429,7 +447,7 @@
                      break;
              }
             
-            entity.set(this.name, value);
+            entity.set(this.name, value, {source: 'controlOnChange'});
 
             //Check if calculated, or autoUpdate needes
             for (var column of entity.untable.columns){
@@ -804,12 +822,22 @@
             if (!column)            
                 return val;
             
+            if (
+                column.step && 
+                typeof column.step === 'number'
+                && column.step < 1
+                ){
+                var fixedLength = column.step.toString().split('.')[1].length;
+                console.log(fixedLength);
+                return  parseFloat(val).toFixed(fixedLength);
+            }
+            
             if (column.type === 'money'){
                 //format value
                 return  parseFloat(val).toFixed(2);
             }
             
-             return val;
+            return val;
         },
 
         /**
@@ -898,9 +926,9 @@
                 .css({
                     display: visible ? 'table-cell' : 'none'
                 });                
-
-             this._untable.fakerow();   
+ 
              this.visible = visible;
+             this._untable.fakerow();   
         },
 
         setWidth: function(width){
@@ -925,9 +953,8 @@
                    'max-width': width
                 });
                 
-            this._untable.fakerow();
-
             this.width = width;
+            this._untable.fakerow();
         }
     }
     
