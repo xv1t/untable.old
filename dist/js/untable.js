@@ -10,7 +10,12 @@
     var controlKeys = [9,13,16,17,18,27,33,34,35,36,37,38,39,40,45,46,116];
     
     function fa(icon_class){
-        return '<i class="fa fa-' + icon_class + '"></i>';
+        var faClassFound = icon_class.indexOf('fa ') === 0 || icon_class.indexOf('fa-') === 0;
+        var fullClassName = faClassFound
+            ? icon_class
+            : `fa fa-${icon_class}`;
+
+        return `<i class="${fullClassName}"></i>`;
     }    
     
     // UnEntity
@@ -227,7 +232,8 @@
                             }
                         }); 
                     }//for    
-                    control.width( column.width - cellBtnGroup.width() - 15 );
+                    var buttonsWidth = cellBtnGroup.width() || column.buttons.length * 27;
+                    control.width( column.controlWidth || column.width - buttonsWidth - 15 );
                 } //if
                 
                 if ( !editable ){
@@ -821,6 +827,9 @@
             
             if (!column)            
                 return val;
+
+            if (val === null)
+                return val;
             
             if (
                 column.step && 
@@ -866,7 +875,7 @@
             for (var i=1; i < keys.length; i++){
                 let nextKey = keys[i];
 
-                if (typeof currKey !== 'object'){
+                if (typeof currKey !== 'object' || currKey === null){
                     return;
                 }
 
@@ -981,6 +990,8 @@
                 url: null,
                 data: {}
             },
+            rowDraggable: false,
+            rowDragData: null,
             autoSelectId: null,
             showColumns: true,
             showFilter: true,
@@ -1613,6 +1624,36 @@
                     .attr('data-cid', entity.cid)
                     .attr('tabindex', 2)
                     .data('entity', entity);
+
+            if (this.rowDraggable){
+                entity.tr
+                    .off('dragstart')
+                    .on ('dragstart', function(e){
+
+                        var entity = $(this).data('entity');
+
+                        var attributes = $.extend(
+                            true, 
+                            {}, 
+                            entity.untable.rowDragData || {}
+                        );
+
+                        var untableAttributes = entity.untable.element[0].attributes;
+
+                        for (let i = 0; i < untableAttributes.length; i++){
+                            let attr = untableAttributes[i].name;
+                            let val  = untableAttributes[i].value;
+                            attributes[attr] = val;
+                        }
+
+                        e.originalEvent.dataTransfer.setData('json', JSON.stringify(
+                            {entity: entity.data, attributes})
+                        );
+
+                        console.log({entity, attributes})
+                    })
+                    .attr('draggable', 'true');
+            }
             
             this.tbody.append(entity.tr);
 
@@ -2541,6 +2582,7 @@
                 .on('keyup keypress keydown', function(e){
                     var __unselect = $(this).data('unselect');
                     e.stopPropagation();
+                    console.log({type: e.type,  keyCode: e.keyCode, e});
                     switch (e.keyCode){
                         case 27: //ESC
                             __unselect.cancel();
@@ -2548,6 +2590,13 @@
                         case 13: //ENTER
                         case 40: //ARROW_DOWN
                             __unselect.open(e);
+                            return false;
+                            break;
+                        case 46: //DELETE
+                            if (e.ctrlKey){
+                                //Ctrl+Delete = erase value to null
+                                __unselect.set(null, null);
+                            }
                             break;
                         default:
                            // return false;
